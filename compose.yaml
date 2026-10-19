@@ -1,0 +1,40 @@
+name: taskflow
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-taskflow}
+      POSTGRES_USER: ${POSTGRES_USER:-taskflow}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taskflow}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - taskflow-db:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taskflow} -d ${POSTGRES_DB:-taskflow}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+  postgrest:
+    image: postgrest/postgrest:v12.2.3
+    environment:
+      # Dev-only credentials: keep db/init/001_roles.sql in sync if you change them.
+      PGRST_DB_URI: postgres://authenticator:authenticator-dev-password@db:5432/${POSTGRES_DB:-taskflow}
+      PGRST_DB_SCHEMAS: api
+      PGRST_DB_ANON_ROLE: web_anon
+      PGRST_SERVER_PORT: 3000
+      PGRST_LOG_LEVEL: info
+      PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:-dev-only-secret-change-me-please-32chars}
+    ports:
+      # Exposed for debugging only. In production, keep PostgREST on the private network.
+      - "${POSTGREST_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  taskflow-db:

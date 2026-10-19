@@ -1,0 +1,24 @@
+# Java / Maven
+backend/target/
+*.class
+*.log
+
+# Node / Vite
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# Entorno y secretos
+.env
+.env.local
+.env.*.local
+
+# Sistema / IDE
+.DS_Store
+.idea/
+.vscode/
+*.iml
+
+# DSH local
+.dsh/cache/
+.dsh/state/
