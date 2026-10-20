@@ -12,7 +12,8 @@ Dockerfiles y scripts de arranque. No tocás `backend/` ni `frontend/` salvo ped
 
 ## Responsabilidades
 
-- Esquema `api` (athletes, exercises, training_sessions, session_entries) con constraints e índices.
+- Esquema `api` (athletes, exercises, training_sessions, session_entries y las 5 tablas de
+  competencia) con constraints e índices. Inscripción/resultado se resuelven con upsert.
 - Función `api.create_session(jsonb)`: sesión + series atómicas, `payload` wrapper, grants y
   `NOTIFY pgrst, 'reload schema'`.
 - Roles `authenticator` (`NOINHERIT`) y `web_anon` solo dev; grants mínimos.

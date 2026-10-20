@@ -71,13 +71,21 @@ competencias son fase 2: no inventes una taxonomía universal de kilos.
 6. **Verificación**: `make test`, `make smoke` y recorrido E2E.
 7. **Docs**: README/AGENTS si cambia contrato o regla.
 
-## Fronteras de la fase 2
+## Competencias (implementadas)
 
-- **Competencias**: `competitions`, `competition_events`, `registrations`, `event_results`, scoring
-  por posición y desempates. No metas esa lógica en `LeaderboardService`.
+- Tablas: `competitions`, `competition_divisions`, `competition_events`,
+  `competition_registrations`, `competition_results`.
+- Flujo: `Compete` → `CompetitionController` → `CompetitionService` → `CompetitionRepository`.
+- El puntaje vive en `CompetitionScoring`, **no** en `LeaderboardService` ni en React.
+- Inscripción y resultado usan upsert (`on_conflict` + `resolution=merge-duplicates`).
+- Una competencia debe estar `LIVE` para inscribirse/cargar resultados; Ruky Elite exige tier ELITE.
+
+## Siguiente fase
+
+- **Admin de competencias**: validar resultados, cerrar eventos y publicar ranking final.
 - **Ruky Elite**: criterios oficiales + postulación; no uses el ranking de volumen como clasificación.
-- **Auth/RLS**: cuando entre, `CurrentAthleteService` se reemplaza por el principal autenticado; el
-  resto del dominio no debería cambiar.
+- **Auth/RLS**: reemplazar `CurrentAthleteService` por el principal autenticado; el resto del dominio
+  no debería cambiar.
 
 ## Señales de diseño equivocado
 

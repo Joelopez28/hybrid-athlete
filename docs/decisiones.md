@@ -60,12 +60,28 @@ consecuencias. Si cambiás una, agregá un ADR nuevo que la reemplace.
 - **Consecuencias**: no hay cobro ni gating de contenido. La clasificación automática por benchmarks
   es una fase posterior y requiere definir reglas oficiales.
 
-## ADR-007 — Competencias Strong Fit fuera del MVP
+## ADR-007 — Competencias Strong Fit con puntaje por posición
 
 - **Fecha**: 2026-10-20
-- **Contexto**: el producto final incluye competencias con varias pruebas y ranking por puntos, pero
-  el MVP priorizó registro + progreso.
-- **Decisión**: no implementar el motor todavía; dejar el modelo de sesiones y el leaderboard como
-  base. La UI muestra el plan en Comunidad.
-- **Consecuencias**: cuando se implemente, crear tablas `competitions`, `competition_events`,
-  `registrations`, `event_results` y un servicio de scoring separado de `LeaderboardService`.
+- **Contexto**: el MVP priorizó registro + progreso; la siguiente fase incorpora eventos
+  competitivos con varias pruebas y divisiones.
+- **Decisión**: modelar `competitions`, `competition_divisions`, `competition_events`,
+  `competition_registrations` y `competition_results`. El puntaje **no se persiste**: se calcula en
+  `CompetitionScoring` por prueba, ordenando según `score_direction`, asignando
+  `(participantes - puesto + 1) × 10` y sumando. Resultado ausente = 0; desempate por primeros
+  puestos y luego nombre.
+- **Consecuencias**: el ranking es reproducible y auditable mientras los resultados no cambien. Si
+  se necesita historial de puntajes (por ejemplo, tras validar o cerrar), habrá que persistirlos.
+  La edición de resultados por el atleta queda limitada a competencias `LIVE`; la validación por
+  admin es la siguiente deuda.
+
+## ADR-008 — Inscripción y resultados con upsert
+
+- **Fecha**: 2026-10-20
+- **Contexto**: un atleta puede cambiar de división o corregir una marca; un insert ciego generaría
+  conflictos por las restricciones únicas.
+- **Decisión**: `POST /competition_registrations?on_conflict=competition_id,athlete_id` y
+  `POST /competition_results?on_conflict=event_id,athlete_id` con
+  `Prefer: resolution=merge-duplicates,return=representation`.
+- **Consecuencias**: las operaciones son idempotentes y no requieren PATCH separados. Los campos
+  omitidos no se borran (merge), así que limpiar `notes` requiere enviar `""` o modelar un PATCH.

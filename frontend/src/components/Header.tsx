@@ -1,7 +1,7 @@
 import type { Athlete } from "../api/types";
 import { initials } from "../format";
 
-export type Tab = "dashboard" | "log" | "history" | "progress" | "community";
+export type Tab = "dashboard" | "log" | "history" | "progress" | "compete" | "community";
 
 interface Props {
   tab: Tab;
@@ -14,6 +14,7 @@ const NAV: { id: Tab; label: string }[] = [
   { id: "log", label: "Registrar" },
   { id: "history", label: "Historial" },
   { id: "progress", label: "Progreso" },
+  { id: "compete", label: "Competir" },
   { id: "community", label: "Comunidad" },
 ];
 

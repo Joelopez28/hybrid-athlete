@@ -57,6 +57,20 @@ return findById(id).orElseThrow(...);
 - `StatsService` trabaja sobre la ventana de semanas y devuelve buckets semanales desde el lunes.
 - `LeaderboardService` agrupa sesiones por atleta; no N+1 a la base.
 
+## Competencias
+
+`CompetitionService` carga competencia + divisiones + eventos + inscripciones + resultados y delega el
+puntaje en `CompetitionScoring`:
+
+- Por prueba: ordenar por `raw_score` según `score_direction`; puntos = `(participantes - puesto + 1) × 10`.
+- Ausente = 0 puntos; desempate por total, luego primeros puestos, luego nombre.
+- `POST /register` y `POST /events/{id}/result` son upserts (`on_conflict`), no inserts ciegos.
+- `Ruky Elite` exige `athlete.tier == ELITE`; solo se opera si `status == LIVE`.
+- `displayScore` se autogenera para TIME (mm:ss), WEIGHT (kg) y REPS si el cliente no lo manda.
+
+Tests: `CompetitionScoringTest` (puro), `CompetitionServiceTest` (reglas), `CompetitionRepositoryTest`
+(upsert/embed), `CompetitionControllerTest`.
+
 ## Errores
 
 `GlobalExceptionHandler` mapea a `{timestamp,status,error,message,path}`:
@@ -95,7 +109,8 @@ Nunca devuelvas el body crudo de PostgREST ni un stacktrace.
 4. `BigDecimal` para pesos/RPE; nunca `double`.
 5. Ordenar series por `movement` y luego `setIndex` para agrupar en la UI.
 6. No hay auth: **no** aceptes `athleteId` desde el request; sale de `CurrentAthleteService`.
-7. `StatsService` recalcula en memoria; si crece el volumen, mover a vistas SQL y cachear.
+7. `StatsService` y `CompetitionScoring` recalculan en memoria; si crece el volumen, mover a vistas SQL.
+8. En upsert, los campos omitidos **no** se borran (merge); para limpiar notas enviá `""` o modelá PATCH.
 
 ## Definition of done
 

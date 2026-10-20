@@ -19,7 +19,7 @@ docker compose ps                      # db healthy, postgrest up
 curl -sS -i 'http://localhost:3000/training_sessions?limit=1'
 
 # 1) Backend
-cd backend && ./mvnw test              # 23 tests
+cd backend && ./mvnw test              # 41 tests
 curl -sS http://localhost:8080/actuator/health
 
 # 2) Contrato real (crea, verifica volumen, lista, borra)
@@ -60,8 +60,10 @@ Si falla:
 3. Historial: la sesión nueva aparece arriba con volumen correcto; expandir series.
 4. Borrar: confirmar, desaparece, total baja.
 5. Progreso: PRs (kg/reps/segundos), chart y mezcla.
-6. Comunidad: cambiar métrica/período/división; Ruky Elite filtra solo `ELITE`.
-7. Mobile 390px: navegación envuelta, sin scroll horizontal, tabla de series con scroll interno.
+6. Competir: inscribirse/cambiar división, cargar un resultado, ver la marca formateada y el
+   leaderboard de la división propia; la tabla scrollea y el Total queda fijo.
+7. Comunidad: cambiar métrica/período/división; Ruky Elite filtra solo `ELITE`.
+8. Mobile 390px: navegación envuelta, sin scroll horizontal, tablas con scroll interno.
 
 ## Diagnóstico por capa
 
@@ -82,7 +84,7 @@ Si falla:
 ```text
 ✅ docker compose config -q
 ✅ curl :3000/training_sessions → 200
-✅ ./mvnw test → 23 tests, 0 failures
+✅ ./mvnw test → 41 tests, 0 failures
 ✅ npm run typecheck && npm run build → ok
 ✅ make smoke → created/listed/deleted, total restaurado
 ✅ UI E2E → dashboard, crear, historial, borrar, progreso, Elite, mobile 0 overflow

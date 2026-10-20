@@ -17,6 +17,10 @@ athletes ──< training_sessions ──< session_entries >── exercises
 - `training_sessions`: atleta, fecha, disciplina, tipo, duración, RPE, resultado WOD/HYROX.
 - `session_entries`: sesión, ejercicio opcional, `movement` denormalizado, `set_index`, `reps`,
   `weight_kg`, `seconds`, `rpe`.
+- Competencias: `competitions` → `competition_divisions` / `competition_events`;
+  `competition_registrations` (única por competencia/atleta) y `competition_results`
+  (única por evento/atleta). Las FK compuestas garantizan que división/evento pertenezcan a la
+  competencia.
 
 Convenciones:
 - snake_case en DB; el mapper del BFF lo traduce a camelCase.
@@ -45,6 +49,22 @@ La función inserta sesión + series en una transacción y devuelve el `uuid`. R
 - `grant execute` a `web_anon` (dev).
 - Tras crear la función: `NOTIFY pgrst, 'reload schema';` (ya está al final de `005_functions.sql`).
 - PostgREST necesita el wrapper `payload`; documentado en el backend.
+
+## Competencias: upsert
+
+```http
+POST /competition_registrations?on_conflict=competition_id,athlete_id&select=*,athlete:athletes(*)
+Prefer: resolution=merge-duplicates,return=representation
+{"competition_id":"...","division_id":"...","athlete_id":"...","status":"REGISTERED"}
+
+POST /competition_results?on_conflict=event_id,athlete_id
+Prefer: resolution=merge-duplicates,return=representation
+{"competition_id":"...","event_id":"...","athlete_id":"...","raw_score":240,"display_score":"04:00"}
+```
+
+- El puntaje no se guarda: se calcula en `CompetitionScoring`.
+- El seed (`007_competition_demo.sql`) crea 1 competencia LIVE, 2 divisiones, 4 pruebas y 16 resultados.
+- Para cerrar una competencia, actualizá `status` a `FINISHED` (admin es fase 2).
 
 ## Consultas que usa el BFF
 

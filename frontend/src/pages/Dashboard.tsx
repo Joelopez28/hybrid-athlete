@@ -157,19 +157,19 @@ export function Dashboard({ athlete, stats, sessions, leaderboard, onNavigate }:
         </section>
 
         <section className="panel elite-explain" aria-labelledby="elite-title">
-          <p className="eyebrow">Próxima fase</p>
+          <p className="eyebrow">En vivo</p>
           <h2 id="elite-title">Strong Fit · competencias</h2>
           <p>
-            Eventos con varias pruebas, puntaje por posición y ranking en vivo. La base de datos ya
-            guarda tus resultados; estamos definiendo el formato de la primera competencia.
+            La primera competencia ya está abierta: cuatro pruebas, divisiones Ruky Elite y RX, y un
+            leaderboard que se mueve con cada marca.
           </p>
           <ul className="check-list">
-            <li>Divisiones por disciplina y nivel</li>
-            <li>Pruebas con puntaje y desempates</li>
-            <li>Leaderboard por temporada</li>
+            <li>Inscripción por división</li>
+            <li>Puntaje por posición y desempates</li>
+            <li>Leaderboard en vivo</li>
           </ul>
-          <button type="button" className="secondary-button" onClick={() => onNavigate("community")}>
-            Ver la comunidad
+          <button type="button" className="secondary-button" onClick={() => onNavigate("compete")}>
+            Ir a competir
           </button>
         </section>
       </div>

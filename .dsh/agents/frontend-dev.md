@@ -14,8 +14,9 @@ Consumís `/api`; no cambiás backend ni PostgREST. Si el contrato no alcanza, l
 
 - Tipos espejo en `api/types.ts` (una sola fuente para componentes).
 - `api/client.ts`: fetch tipado, `ApiError`, sin URLs de PostgREST.
-- `useRukyData` / `useLeaderboard`: carga, error, mutaciones, `AbortController`.
+- `useRukyData` / `useLeaderboard` / `useCompetition`: carga, error, mutaciones, `AbortController`.
 - Formulario de sesión: disciplina → tipo/catálogo, series dinámicas, WOD/HYROX, validación.
+- Página Competir: inscripción por división, carga de resultados, leaderboard con scroll y Total sticky.
 - Estados carga/vacío/error; foco visible; `aria-invalid`; teclado.
 - Dark UI con tokens; responsive hasta 360px.
 

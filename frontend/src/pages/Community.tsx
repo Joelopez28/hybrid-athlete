@@ -168,11 +168,11 @@ export function Community({ athlete }: Props) {
         </section>
 
         <section className="panel competition-teaser" aria-labelledby="competition-title">
-          <p className="eyebrow">Próximamente</p>
-          <h2 id="competition-title">Strong Fit RUKY</h2>
+          <p className="eyebrow">En competencia</p>
+          <h2 id="competition-title">Strong Fit RUKY #1</h2>
           <p>
-            Competencias con varias pruebas, puntaje por posición, divisiones y ranking en vivo.
-            El modelo de datos ya está listo para guardar resultados; falta definir el reglamento.
+            La primera competencia está en vivo: cuatro pruebas, divisiones Ruky Elite y RX, y
+            puntaje por posición. Inscribite y cargá tus marcas desde la pestaña Competir.
           </p>
           <div className="teaser-row">
             <span>Formato</span>
@@ -184,7 +184,7 @@ export function Community({ athlete }: Props) {
           </div>
           <div className="teaser-row">
             <span>Estado</span>
-            <strong>Diseño</strong>
+            <strong>En vivo</strong>
           </div>
         </section>
       </div>

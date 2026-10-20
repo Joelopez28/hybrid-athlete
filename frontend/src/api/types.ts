@@ -192,3 +192,109 @@ export function isWodFormat(value: string): value is WodFormat {
 export function isWodDivision(value: string): value is WodDivision {
   return (WOD_DIVISIONS as readonly string[]).includes(value);
 }
+
+export type CompetitionStatus = "DRAFT" | "LIVE" | "FINISHED";
+export type RegistrationStatus = "REGISTERED" | "WITHDRAWN";
+export type ScoreType = "TIME" | "REPS" | "WEIGHT";
+export type ScoreDirection = "ASC" | "DESC";
+
+export interface CompetitionSummary {
+  id: string;
+  slug: string;
+  name: string;
+  description?: string;
+  status: CompetitionStatus;
+  startsOn?: string;
+  endsOn?: string;
+  location?: string;
+}
+
+export interface CompetitionDivisionInfo {
+  id: string;
+  name: string;
+  tier: AthleteTier;
+  capacity?: number;
+  participants: number;
+}
+
+export interface CompetitionEventInfo {
+  id: string;
+  name: string;
+  description?: string;
+  scoreType: ScoreType;
+  scoreDirection: ScoreDirection;
+  orderIndex: number;
+}
+
+export interface CompetitionRegistrationInfo {
+  id: string;
+  divisionId: string;
+  divisionName: string;
+  status: RegistrationStatus;
+}
+
+export interface MyCompetitionResult {
+  eventId: string;
+  rawScore: number;
+  displayScore: string;
+  notes?: string;
+  place?: number;
+  points: number;
+}
+
+export interface CompetitionEventScore {
+  eventId: string;
+  place?: number;
+  points: number;
+  displayScore?: string;
+}
+
+export interface CompetitionLeaderboardRow {
+  rank: number;
+  athleteId: string;
+  displayName: string;
+  handle: string;
+  tier: AthleteTier;
+  totalPoints: number;
+  firstPlaces: number;
+  eventScores: CompetitionEventScore[];
+}
+
+export interface CompetitionLeaderboard {
+  divisionId: string;
+  divisionName: string;
+  rows: CompetitionLeaderboardRow[];
+}
+
+export interface CompetitionDetail {
+  competition: CompetitionSummary;
+  divisions: CompetitionDivisionInfo[];
+  events: CompetitionEventInfo[];
+  myRegistration?: CompetitionRegistrationInfo | null;
+  myResults: MyCompetitionResult[];
+  leaderboards: CompetitionLeaderboard[];
+}
+
+export interface SubmitCompetitionResultInput {
+  rawScore: number;
+  displayScore?: string | null;
+  notes?: string | null;
+}
+
+export const COMPETITION_STATUS_LABELS: Record<CompetitionStatus, string> = {
+  DRAFT: "Borrador",
+  LIVE: "En vivo",
+  FINISHED: "Finalizada",
+};
+
+export const SCORE_TYPE_LABELS: Record<ScoreType, string> = {
+  TIME: "Tiempo",
+  REPS: "Repeticiones",
+  WEIGHT: "Peso",
+};
+
+export const SCORE_UNIT_LABELS: Record<ScoreType, string> = {
+  TIME: "segundos",
+  REPS: "reps",
+  WEIGHT: "kg",
+};

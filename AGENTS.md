@@ -8,7 +8,7 @@ Todo el equipo humano y los agentes de DSH siguen este archivo. Es la fuente de 
 
 ```text
 backend/        Spring Boot 3.3 · Java 17 · BFF y cálculos (paquete com.ruky.training)
-frontend/       React 19 + TypeScript + Vite · UI de 5 secciones
+frontend/       React 19 + TypeScript + Vite · UI de 6 secciones
 db/init/        Roles, esquema, catálogo de ejercicios, demo y RPC (PostgreSQL)
 compose.yaml    Postgres + PostgREST para desarrollo
 compose.full.yaml  Stack completo en contenedores (backend + frontend)
@@ -38,7 +38,7 @@ make up            # Postgres + PostgREST
 make install       # deps frontend (una vez)
 make backend       # Spring Boot en :8080
 make frontend      # Vite en :5173
-make test          # 23 tests backend + typecheck/build frontend
+make test          # 41 tests backend + typecheck/build frontend
 make smoke         # crea sesión, verifica volumen, lista y borra
 make full-up       # stack completo en Docker (:8081)
 make db-reset      # borra el volumen y re-siembra (destructivo)
@@ -54,6 +54,8 @@ Detalle y troubleshooting en `README.md`.
 - **Series**: ejercicio del catálogo, repeticiones, peso (kg), segundos (holds) y RPE.
 - **Progreso**: volumen semanal, PRs, minutos, mezcla de disciplinas.
 - **Comunidad**: ranking por volumen, sesiones o minutos; filtro por período y división (`OPEN` / `ELITE`).
+- **Competencias Strong Fit**: competencia en vivo, inscripción por división, 4 pruebas, carga de
+  resultados y leaderboard con puntaje por posición (10 puntos por puesto).
 - **Ruky Elite**: división de élite del atleta (`athletes.tier`). Los estándares que muestra la UI son
   **referencia**, no un sistema de clasificación implementado.
 
@@ -69,6 +71,11 @@ Detalle y troubleshooting en `README.md`.
 | `POST` | `/api/sessions` | Crea sesión + series (201) |
 | `DELETE` | `/api/sessions/{id}` | Borra (204/404) |
 | `GET` | `/api/stats?weeks=8` | Totales, semanal, PRs, disciplinas |
+| `GET` | `/api/competitions` | Competencias |
+| `GET` | `/api/competitions/{slug}` | Detalle, inscripción propia y leaderboards |
+| `POST` | `/api/competitions/{slug}/register` | Inscribirse / cambiar de división |
+| `DELETE` | `/api/competitions/{slug}/register` | Baja |
+| `POST` | `/api/competitions/{slug}/events/{id}/result` | Cargar/actualizar resultado |
 | `GET` | `/api/leaderboard?weeks=4&metric=VOLUME&tier=ELITE` | Ranking |
 
 - JSON camelCase; fechas ISO-8601; errores `{ timestamp, status, error, message, path }`.
@@ -83,9 +90,15 @@ Detalle y troubleshooting en `README.md`.
 - **Volumen** = Σ `reps × weight_kg`; las series de peso corporal no suman volumen.
 - **PRs** solo de sesiones `STRENGTH` y `SKILL`. Los WOD/HYROX guardan resultados agregados y no
   generan PRs. Holds usan `seconds` como marca.
+- **Competencias**: `competitions`, `competition_divisions`, `competition_events`,
+  `competition_registrations`, `competition_results`. El puntaje se calcula en
+  `CompetitionScoring` (no se persiste): por prueba, puntos = `(participantes - puesto + 1) × 10`;
+  ausente = 0; desempate por cantidad de primeros puestos.
+- Inscripción y resultados se hacen con **upsert** de PostgREST (`on_conflict` + `resolution=merge-duplicates`).
+  `Ruky Elite` exige `athletes.tier = ELITE`; la competencia debe estar `LIVE`.
 - La RPC `api.create_session` inserta sesión + series en una transacción. Si cambiás su firma,
   actualizá `SessionWrite`, `SessionRepository` y `005_functions.sql`.
-- Cambios de esquema: archivo nuevo numerado (`006_*.sql`); no edites uno ya aplicado en producción.
+- Cambios de esquema: archivo nuevo numerado (`008_*.sql`); no edites uno ya aplicado en producción.
 - `web_anon` es **solo desarrollo**. Producción exige `app_user` + JWT + RLS.
 
 ## Calidad obligatoria antes de cerrar
@@ -126,8 +139,8 @@ Detalle y troubleshooting en `README.md`.
 ## Deuda técnica / roadmap
 
 - **Auth real + RLS** por atleta; hoy todo pertenece al atleta demo.
-- **Competencias Strong Fit**: tablas `competitions`, `events`, `registrations`, `results`; motor de
-  puntaje por posición y desempates. Hoy solo hay teaser en UI.
+- **Cierre de competencias**: hoy no hay admin que valide resultados ni cierre un evento; el
+  atleta puede editar su marca mientras la competencia esté `LIVE`.
 - **Criterios Ruky Elite**: benchmarks oficiales y flujo de postulación/clasificación.
 - Migraciones Flyway/Liquibase; hoy init scripts de Docker.
 - E2E Playwright versionado en el repo y CI.

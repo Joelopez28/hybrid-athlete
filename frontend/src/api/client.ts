@@ -1,6 +1,8 @@
 import type {
   Athlete,
   AthleteTier,
+  CompetitionDetail,
+  CompetitionSummary,
   CreateSessionInput,
   Discipline,
   Exercise,
@@ -8,6 +10,7 @@ import type {
   LeaderboardMetric,
   Page,
   Stats,
+  SubmitCompetitionResultInput,
   TrainingSession,
 } from "./types";
 
@@ -109,6 +112,36 @@ export const api = {
 
   deleteSession(id: string): Promise<void> {
     return request<void>(`/sessions/${id}`, { method: "DELETE" });
+  },
+
+  competitions(signal?: AbortSignal): Promise<CompetitionSummary[]> {
+    return request<CompetitionSummary[]>("/competitions", { signal });
+  },
+
+  competition(slug: string, signal?: AbortSignal): Promise<CompetitionDetail> {
+    return request<CompetitionDetail>(`/competitions/${slug}`, { signal });
+  },
+
+  registerForCompetition(slug: string, divisionId: string): Promise<void> {
+    return request<void>(`/competitions/${slug}/register`, {
+      method: "POST",
+      body: JSON.stringify({ divisionId }),
+    });
+  },
+
+  withdrawFromCompetition(slug: string): Promise<void> {
+    return request<void>(`/competitions/${slug}/register`, { method: "DELETE" });
+  },
+
+  submitCompetitionResult(
+    slug: string,
+    eventId: string,
+    input: SubmitCompetitionResultInput,
+  ): Promise<void> {
+    return request<void>(`/competitions/${slug}/events/${eventId}/result`, {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
   },
 
   exercisesByDiscipline(discipline: Discipline, signal?: AbortSignal): Promise<Exercise[]> {

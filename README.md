@@ -5,7 +5,7 @@ mirá tu progreso, competí por ranking y entrá a la división **Ruky Elite**.
 
 ![Dashboard de RUKY](docs/captura-desktop.png)
 
-<sub>Vista móvil: [captura responsive](docs/captura-mobile.png).</sub>
+<sub>Vista móvil: [captura responsive](docs/captura-mobile.png) · Competencias: [captura Strong Fit](docs/captura-compete.png).</sub>
 
 ## Qué está implementado
 
@@ -17,18 +17,20 @@ mirá tu progreso, competí por ranking y entrá a la división **Ruky Elite**.
 - **Progreso**: PRs por ejercicio (peso, reps o segundos), volumen semanal y mezcla de disciplinas.
 - **Comunidad**: ranking por volumen, sesiones o minutos; períodos de 4/8/12 semanas; filtro
   **Ruky Elite**.
+- **Competencias Strong Fit**: competencia en vivo con 4 pruebas, inscripción por división (Ruky
+  Elite / RX), carga y edición de resultados, puntaje por posición y leaderboard por división.
 - **Backend Spring Boot 3.3 / Java 17**: contrato `/api`, validación, errores uniformes, cálculos de
-  volumen/PR/ranking, 23 tests.
-- **PostgREST + PostgreSQL 16**: 4 tablas, catálogo de 34 ejercicios, RPC atómica para sesiones +
-  series, datos demo de 4 atletas.
+  volumen/PR/ranking/puntaje, 41 tests.
+- **PostgREST + PostgreSQL 16**: 9 tablas, catálogo de 34 ejercicios, RPC atómica para sesiones +
+  series, datos demo de 4 atletas y una competencia completa.
 - **Docker Compose**: desarrollo y stack completo con Nginx (`:8081`).
 - **Agentes DSH**: 6 skills + 5 briefs para seguir construyendo sin romper el dominio.
 
 ## Qué falta (explícito)
 
 - **Auth real y RLS**: hoy hay un atleta demo (`ruky`); no hay login ni aislamiento por usuario.
-- **Competencias Strong Fit**: la UI muestra el plan, pero el motor de eventos/puntajes no está
-  implementado.
+- **Cierre de competencias**: no hay admin que valide resultados ni cierre una competencia; el
+  atleta puede editar su marca mientras esté `LIVE`.
 - **Criterios Ruky Elite**: la división existe (`athletes.tier`); los estándares son de referencia,
   no un sistema de clasificación.
 - Migraciones formales (hoy scripts de init), CI y E2E versionado.
@@ -77,7 +79,7 @@ Abrí **http://localhost:5173**. La primera vez `./mvnw` descarga Maven y depend
 Verificación:
 
 ```bash
-make test     # 23 tests backend + typecheck/build frontend
+make test     # 41 tests backend + typecheck/build frontend
 make smoke    # crea una sesión de 500 kg, la lista y la borra
 ```
 
@@ -100,7 +102,9 @@ Nginx sirve la SPA y hace proxy de `/api`; Postgres y PostgREST no se publican.
    - HYROX: tiempo total y división (Open, Pro, Dobles, Relay).
 3. **Historial**: filtrá por disciplina y desplegá las series de cada sesión.
 4. **Progreso**: PRs, volumen semanal y distribución de la carga.
-5. **Comunidad**: cambiá métrica, período y división. **Ruky Elite** filtra solo atletas `ELITE`.
+5. **Competir**: inscribite en la división Ruky Elite o RX, cargá tus marcas en cada prueba y seguí
+   el leaderboard. El puntaje es por posición y se recalcula en vivo.
+6. **Comunidad**: cambiá métrica, período y división. **Ruky Elite** filtra solo atletas `ELITE`.
 
 ### Datos demo
 
@@ -108,6 +112,7 @@ Nginx sirve la SPA y hace proxy de `/api`; Postgres y PostgREST no se publican.
 - Comunidad: `vale` (Elite), `nacho` (Open), `sofi` (Open).
 - 10 sesiones de Ruky distribuidas en 6 semanas (fuerza, Fran, Grace, HYROX Open, skills).
 - 34 ejercicios de las cuatro disciplinas.
+- Competencia `strong-fit-ruky-1`: 4 pruebas, 2 divisiones y 16 resultados cargados.
 
 Para volver a empezar: `make db-reset` (destructivo, borra el volumen).
 
@@ -125,6 +130,11 @@ Base: `http://localhost:8080/api`.
 | `POST` | `/api/sessions` | Crea sesión + series |
 | `DELETE` | `/api/sessions/{id}` | Borra |
 | `GET` | `/api/stats?weeks=8` | Totales, semanal, PRs, disciplinas |
+| `GET` | `/api/competitions` | Competencias |
+| `GET` | `/api/competitions/{slug}` | Detalle + inscripción propia + leaderboards |
+| `POST` | `/api/competitions/{slug}/register` | Inscribirse / cambiar de división |
+| `DELETE` | `/api/competitions/{slug}/register` | Darse de baja |
+| `POST` | `/api/competitions/{slug}/events/{id}/result` | Cargar/actualizar resultado |
 | `GET` | `/api/leaderboard?weeks=4&metric=VOLUME&tier=ELITE` | Ranking |
 
 ```bash
@@ -149,6 +159,13 @@ curl -s -X POST http://localhost:8080/api/sessions \
 # Stats y ranking
 curl -s 'http://localhost:8080/api/stats?weeks=8'
 curl -s 'http://localhost:8080/api/leaderboard?weeks=4&metric=VOLUME&tier=ELITE'
+
+# Competencia: detalle + leaderboard
+curl -s 'http://localhost:8080/api/competitions/strong-fit-ruky-1'
+
+# Cargar un resultado (atleta demo inscripto)
+curl -s -X POST 'http://localhost:8080/api/competitions/strong-fit-ruky-1/events/<eventId>/result' \
+  -H 'Content-Type: application/json' -d '{"rawScore":250}'
 ```
 
 Errores uniformes:
@@ -165,10 +182,14 @@ Errores uniformes:
 
 ## Datos y PostgREST
 
-- Esquema `api`: `athletes`, `exercises`, `training_sessions`, `session_entries`.
+- Esquema `api`: `athletes`, `exercises`, `training_sessions`, `session_entries` y las 5 tablas de
+  competencia (`competitions`, `competition_divisions`, `competition_events`,
+  `competition_registrations`, `competition_results`).
 - **Volumen** = Σ `reps × weight_kg`; las series de peso corporal no suman.
 - **PRs** solo de sesiones `STRENGTH` y `SKILL`; holds usan segundos.
 - **Ranking** por volumen/sesiones/minutos, agregado en backend sobre las sesiones del período.
+- **Competencias**: puntos por prueba = `(participantes - puesto + 1) × 10`; resultado ausente = 0.
+  Desempate por cantidad de primeros puestos. Se calcula en backend, no se persiste.
 - Roles de desarrollo: `authenticator` y `web_anon`. **Sin RLS todavía**.
 
 ```bash
@@ -223,21 +244,23 @@ Flujo recomendado: `arquitectura-fullstack` → `data-dev` → `backend-dev` →
 │   ├── 002_schema.sql
 │   ├── 003_exercises.sql
 │   ├── 004_demo_data.sql
-│   └── 005_functions.sql
+│   ├── 005_functions.sql
+│   ├── 006_competitions.sql
+│   └── 007_competition_demo.sql
 ├── backend/
 │   ├── mvnw
 │   └── src/main/java/com/ruky/training/
 │       ├── config/      RestClient + mapper PostgREST
-│       ├── domain/      Athlete, Exercise, TrainingSession, SessionEntry
-│       ├── postgrest/   Repositorios y RPC
-│       ├── service/     Sesiones, stats, leaderboard
+│       ├── domain/      Atletas, sesiones, competencias
+│       ├── postgrest/   Repositorios, RPC y upserts
+│       ├── service/     Sesiones, stats, leaderboard, scoring
 │       ├── web/         Controllers y DTOs
 │       └── error/       ApiError + handler
 ├── frontend/
 │   ├── src/api/         Tipos y cliente
-│   ├── src/hooks/       useRukyData, useLeaderboard
+│   ├── src/hooks/       useRukyData, useLeaderboard, useCompetition
 │   ├── src/components/  Header, SessionForm, SessionCard, chart
-│   └── src/pages/       Dashboard, History, Progress, Community
+│   └── src/pages/       Dashboard, History, Progress, Compete, Community
 ├── scripts/             smoke.sh, dev.sh
 ├── docs/                Capturas y ADR
 └── .dsh/                Skills y briefs
@@ -258,8 +281,8 @@ Antes de producción:
 ## Roadmap
 
 1. **Auth + RLS** (bloqueante para usuarios reales).
-2. **Competencias Strong Fit**: `competitions`, `events`, `registrations`, `results`, scoring por
-   posición y desempates.
+2. **Cierre y validación de competencias**: admin que confirme resultados, cierre eventos y
+   publique el ranking final.
 3. **Ruky Elite**: benchmarks oficiales y flujo de clasificación.
 4. **Progreso avanzado**: 1RM estimado, mejores tiempos, comparación por disciplina.
 5. Migraciones Flyway, CI y E2E Playwright versionado.

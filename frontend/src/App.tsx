@@ -5,6 +5,7 @@ import { Header, type Tab } from "./components/Header";
 import { SessionForm } from "./components/SessionForm";
 import { useRukyData } from "./hooks/useRukyData";
 import { Community } from "./pages/Community";
+import { Compete } from "./pages/Compete";
 import { Dashboard } from "./pages/Dashboard";
 import { History } from "./pages/History";
 import { Progress } from "./pages/Progress";
@@ -97,6 +98,8 @@ function App() {
         )}
 
         {tab === "progress" && <Progress stats={data.stats} />}
+
+        {tab === "compete" && <Compete athlete={data.me} />}
 
         {tab === "community" && <Community athlete={data.me} />}
       </main>

@@ -36,7 +36,9 @@ arreglos, primero entregá el informe.
 - [ ] Volumen = reps × kg mal aplicado (bodyweight, holds, series nulas).
 - [ ] `setIndex` o orden de series inconsistente en la respuesta.
 - [ ] Falta test de: creación con series, WOD inválido, ownership, PR por segundos, ranking Elite.
-- [ ] `StatsService`/`LeaderboardService` hacen N+1 o traen más filas de las necesarias.
+- [ ] `StatsService`/`LeaderboardService`/`CompetitionScoring` hacen N+1 o traen filas de más.
+- [ ] Puntaje de competencia mal calculado (empates, ausencias, puntos por puesto) o en React.
+- [ ] Inscripción/resultado con insert ciego en vez de upsert; falta validar `LIVE` o tier Elite.
 - [ ] Formulario sin validación de cliente o sin mostrar el error del servidor.
 - [ ] Mobile con overflow horizontal (tabla de series, nav, cards).
 - [ ] `any`, non-null assertions o casts que ocultan un error de tipos.

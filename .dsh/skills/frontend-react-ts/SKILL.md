@@ -17,7 +17,7 @@ src/components/Header.tsx  navegación y atleta
 src/components/SessionForm.tsx  formulario dinámico por tipo
 src/components/SessionCard.tsx  tarjeta + series desplegables
 src/components/WeeklyVolumeChart.tsx
-src/pages/              Dashboard, History, Progress, Community
+src/pages/              Dashboard, History, Progress, Compete, Community
 src/App.tsx             tabs y composición
 src/index.css           tokens, layout, dark UI
 ```
@@ -30,6 +30,7 @@ Si la app crece, el orden es: router → TanStack Query → librería de UI, cad
 - `App` mantiene `tab: "dashboard" | "log" | "history" | "progress" | "community"`.
 - `useRukyData` carga todo en paralelo y expone `reload()`. Las mutaciones hacen `await` y `reload()`.
 - `useLeaderboard` es independiente porque la comunidad cambia métrica/período/división.
+- `useCompetition` carga la lista y el detalle de la primera competencia; las mutaciones hacen reload.
 - No dupliques datos: `stats` viene del backend; no recalcules volumen ni PRs en React.
 
 ## Formulario de sesión (lo más delicado)
@@ -71,6 +72,10 @@ Si la app crece, el orden es: router → TanStack Query → librería de UI, cad
 5. El ranking de la comunidad se refetch al cambiar filtros; no filtres sólo en cliente si el backend
    puede hacerlo.
 6. `window.confirm` se usa para borrar; si se reemplaza por modal, mantener foco y Escape.
+7. En Competir, la tabla tiene scroll horizontal: la columna Total es sticky; no la saques.
+8. El leaderboard debe abrir en la división del atleta (`myRegistration`), no en la primera por orden.
+9. Los inputs de resultado son crudos: TIME en segundos, WEIGHT en kg, REPS en reps. El backend
+   formatea el `displayScore`.
 
 ## Verificación
 
