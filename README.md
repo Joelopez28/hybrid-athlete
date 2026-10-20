@@ -5,7 +5,7 @@ mirá tu progreso, competí por ranking y entrá a la división **Ruky Elite**.
 
 ![Dashboard de RUKY](docs/captura-desktop.png)
 
-<sub>Vista móvil: [captura responsive](docs/captura-mobile.png) · Competencias: [captura Strong Fit](docs/captura-compete.png).</sub>
+<sub>Vista móvil: [captura responsive](docs/captura-mobile.png) · Competencias: [captura Strong Fit](docs/captura-compete.png) · Acceso: [captura login](docs/captura-auth.png).</sub>
 
 ## Qué está implementado
 
@@ -17,22 +17,24 @@ mirá tu progreso, competí por ranking y entrá a la división **Ruky Elite**.
 - **Progreso**: PRs por ejercicio (peso, reps o segundos), volumen semanal y mezcla de disciplinas.
 - **Comunidad**: ranking por volumen, sesiones o minutos; períodos de 4/8/12 semanas; filtro
   **Ruky Elite**.
+- **Auth JWT + RLS**: registro/login con BCrypt, tokens HS256 y aislamiento por atleta en PostgreSQL.
+  El ranking comunitario usa una vista agregada, sin exponer sesiones ajenas.
 - **Competencias Strong Fit**: competencia en vivo con 4 pruebas, inscripción por división (Ruky
   Elite / RX), carga y edición de resultados, puntaje por posición y leaderboard por división.
 - **Backend Spring Boot 3.3 / Java 17**: contrato `/api`, validación, errores uniformes, cálculos de
-  volumen/PR/ranking/puntaje, 41 tests.
-- **PostgREST + PostgreSQL 16**: 9 tablas, catálogo de 34 ejercicios, RPC atómica para sesiones +
-  series, datos demo de 4 atletas y una competencia completa.
+  volumen/PR/ranking/puntaje, 47 tests.
+- **PostgREST + PostgreSQL 16**: 10 tablas, roles `app_user`/`app_service`, RLS, catálogo de 34
+  ejercicios, RPC atómica para sesiones + series y datos demo de 4 atletas.
 - **Docker Compose**: desarrollo y stack completo con Nginx (`:8081`).
 - **Agentes DSH**: 6 skills + 5 briefs para seguir construyendo sin romper el dominio.
 
 ## Qué falta (explícito)
 
-- **Auth real y RLS**: hoy hay un atleta demo (`ruky`); no hay login ni aislamiento por usuario.
 - **Cierre de competencias**: no hay admin que valide resultados ni cierre una competencia; el
   atleta puede editar su marca mientras esté `LIVE`.
 - **Criterios Ruky Elite**: la división existe (`athletes.tier`); los estándares son de referencia,
   no un sistema de clasificación.
+- **Sesiones JWT**: 12 h de vigencia, sin refresh ni revocación.
 - Migraciones formales (hoy scripts de init), CI y E2E versionado.
 
 ## Arquitectura
@@ -74,12 +76,19 @@ make backend              # http://localhost:8080
 make frontend             # http://localhost:5173
 ```
 
-Abrí **http://localhost:5173**. La primera vez `./mvnw` descarga Maven y dependencias.
+Abrí **http://localhost:5173** e ingresá con la cuenta demo:
+
+```text
+ruky@ruky.demo · ruky1234
+```
+
+También podés crear una cuenta nueva desde "Crear cuenta". La primera vez `./mvnw` descarga Maven y
+dependencias.
 
 Verificación:
 
 ```bash
-make test     # 41 tests backend + typecheck/build frontend
+make test     # 47 tests backend + typecheck/build frontend
 make smoke    # crea una sesión de 500 kg, la lista y la borra
 ```
 
@@ -108,8 +117,8 @@ Nginx sirve la SPA y hace proxy de `/api`; Postgres y PostgREST no se publican.
 
 ### Datos demo
 
-- Atleta actual: `ruky` (Ruky Elite, 82 kg, CL), configurable con `DEMO_ATHLETE_HANDLE`.
-- Comunidad: `vale` (Elite), `nacho` (Open), `sofi` (Open).
+Cuentas (contraseña `ruky1234`): `ruky@ruky.demo` (Elite), `vale@ruky.demo` (Elite),
+`nacho@ruky.demo` (Open), `sofi@ruky.demo` (Open).
 - 10 sesiones de Ruky distribuidas en 6 semanas (fuerza, Fran, Grace, HYROX Open, skills).
 - 34 ejercicios de las cuatro disciplinas.
 - Competencia `strong-fit-ruky-1`: 4 pruebas, 2 divisiones y 16 resultados cargados.
@@ -118,11 +127,14 @@ Para volver a empezar: `make db-reset` (destructivo, borra el volumen).
 
 ## API
 
-Base: `http://localhost:8080/api`.
+Base: `http://localhost:8080/api`. Todos los endpoints salvo `/api/auth/**` requieren
+`Authorization: Bearer <token>`.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/api/me` | Atleta demo |
+| `POST` | `/api/auth/register` | Crea atleta + credenciales (201) |
+| `POST` | `/api/auth/login` | Devuelve JWT + atleta |
+| `GET` | `/api/me` | Atleta autenticado |
 | `GET` | `/api/athletes` | Comunidad |
 | `GET` | `/api/exercises?discipline=POWERLIFTING` | Catálogo |
 | `GET` | `/api/sessions?size=20&discipline=CROSSFIT` | Historial con series |
@@ -138,11 +150,18 @@ Base: `http://localhost:8080/api`.
 | `GET` | `/api/leaderboard?weeks=4&metric=VOLUME&tier=ELITE` | Ranking |
 
 ```bash
+# Login y token
+TOKEN=$(curl -s -X POST http://localhost:8080/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"identifier":"ruky@ruky.demo","password":"ruky1234"}' \
+  | python3 -c 'import json,sys; print(json.load(sys.stdin)["token"])')
+
 # Historial
-curl -s 'http://localhost:8080/api/sessions?size=2' | python3 -m json.tool
+curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/sessions?size=2' | python3 -m json.tool
 
 # Crear una sesión de fuerza
 curl -s -X POST http://localhost:8080/api/sessions \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' \
   -d '{
     "performedOn": "2026-10-20",
@@ -157,14 +176,15 @@ curl -s -X POST http://localhost:8080/api/sessions \
   }'
 
 # Stats y ranking
-curl -s 'http://localhost:8080/api/stats?weeks=8'
-curl -s 'http://localhost:8080/api/leaderboard?weeks=4&metric=VOLUME&tier=ELITE'
+curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/stats?weeks=8'
+curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/leaderboard?weeks=4&metric=VOLUME&tier=ELITE'
 
 # Competencia: detalle + leaderboard
-curl -s 'http://localhost:8080/api/competitions/strong-fit-ruky-1'
+curl -s -H "Authorization: Bearer $TOKEN" 'http://localhost:8080/api/competitions/strong-fit-ruky-1'
 
 # Cargar un resultado (atleta demo inscripto)
 curl -s -X POST 'http://localhost:8080/api/competitions/strong-fit-ruky-1/events/<eventId>/result' \
+  -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"rawScore":250}'
 ```
 
@@ -190,7 +210,11 @@ Errores uniformes:
 - **Ranking** por volumen/sesiones/minutos, agregado en backend sobre las sesiones del período.
 - **Competencias**: puntos por prueba = `(participantes - puesto + 1) × 10`; resultado ausente = 0.
   Desempate por cantidad de primeros puestos. Se calcula en backend, no se persiste.
-- Roles de desarrollo: `authenticator` y `web_anon`. **Sin RLS todavía**.
+- Roles: `authenticator` (login), `app_user` (JWT, RLS), `app_service` (solo backend, BYPASSRLS).
+  `web_anon` no tiene acceso a tablas.
+- **RLS**: sesiones y series solo del atleta autenticado; perfiles y resultados de competencia
+  visibles para la comunidad; leaderboard vía `athlete_weekly_activity`.
+- `app_user` no puede leer `athlete_credentials`; el hash BCrypt solo lo ve el backend.
 
 ```bash
 # Consulta directa (debug)
@@ -246,14 +270,16 @@ Flujo recomendado: `arquitectura-fullstack` → `data-dev` → `backend-dev` →
 │   ├── 004_demo_data.sql
 │   ├── 005_functions.sql
 │   ├── 006_competitions.sql
-│   └── 007_competition_demo.sql
+│   ├── 007_competition_demo.sql
+│   └── 008_auth.sql
 ├── backend/
 │   ├── mvnw
 │   └── src/main/java/com/ruky/training/
-│       ├── config/      RestClient + mapper PostgREST
+│       ├── config/      RestClient, JWT y seguridad
 │       ├── domain/      Atletas, sesiones, competencias
 │       ├── postgrest/   Repositorios, RPC y upserts
-│       ├── service/     Sesiones, stats, leaderboard, scoring
+│       ├── security/    JwtService, filtro y contexto
+│       ├── service/     Auth, sesiones, stats, leaderboard, scoring
 │       ├── web/         Controllers y DTOs
 │       └── error/       ApiError + handler
 ├── frontend/
@@ -268,24 +294,23 @@ Flujo recomendado: `arquitectura-fullstack` → `data-dev` → `backend-dev` →
 
 ## Seguridad
 
-> **Demo local sin autenticación.** `web_anon` puede leer y escribir; todas las escrituras van al
-> atleta `ruky`. No lo expongas con datos reales.
+> **JWT + RLS activos.** Las cuentas demo usan la contraseña `ruky1234` y el secreto JWT de
+> desarrollo está versionado en `.env.example`/compose. No uses esos valores con datos reales.
 
 Antes de producción:
 
-- Proveedor de identidad + JWT; reemplazar `CurrentAthleteService` por el principal autenticado.
-- `app_user` + RLS por dueño y tests de aislamiento.
-- Cambiar credenciales de `authenticator` y `PGRST_JWT_SECRET`.
-- Postgres/PostgREST en red privada, HTTPS, rate limiting, backups y observabilidad.
+- `PGRST_JWT_SECRET` real (≥32 caracteres) y rotación; evaluar refresh tokens y revocación.
+- HTTPS, rate limiting, backups y observabilidad.
+- Revisar políticas RLS con tests de aislamiento entre cuentas.
+- Postgres/PostgREST en red privada; el backend es el único cliente.
 
 ## Roadmap
 
-1. **Auth + RLS** (bloqueante para usuarios reales).
-2. **Cierre y validación de competencias**: admin que confirme resultados, cierre eventos y
+1. **Cierre y validación de competencias**: admin que confirme resultados, cierre eventos y
    publique el ranking final.
-3. **Ruky Elite**: benchmarks oficiales y flujo de clasificación.
-4. **Progreso avanzado**: 1RM estimado, mejores tiempos, comparación por disciplina.
-5. Migraciones Flyway, CI y E2E Playwright versionado.
+2. **Ruky Elite**: benchmarks oficiales y flujo de clasificación.
+3. **Progreso avanzado**: 1RM estimado, mejores tiempos, comparación por disciplina.
+4. Migraciones Flyway, CI y E2E Playwright versionado.
 
 ## Troubleshooting
 

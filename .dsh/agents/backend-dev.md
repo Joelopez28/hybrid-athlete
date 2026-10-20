@@ -15,7 +15,7 @@ No tocás `frontend/`, `db/` ni compose salvo pedido explícito.
 - DTOs `record` + Jakarta Validation; sin Lombok; constructor injection.
 - Repositorios PostgREST en `postgrest/`; URLs/headers solo ahí.
 - RPC `create_session` con wrapper `{"payload": ...}` y lectura posterior.
-- Reglas en `service/`: sesión válida, volumen, PRs, ranking, ownership del atleta demo.
+- Reglas en `service/`: sesión válida, volumen, PRs, ranking, ownership del atleta JWT.
 - Competencias: `CompetitionService` + `CompetitionScoring` (puntaje por posición, empates,
   inscripción/resultado con upsert, validación LIVE y tier Elite).
 - Errores uniformes (`ApiError`) y mapeo de excepciones.
@@ -51,7 +51,7 @@ Si no podés correr Maven, decilo. No inventes resultados.
 - backend/src/...
 
 ## Verificación
-- `./mvnw test` → 41 tests, 0 failures
+- `./mvnw test` → 47 tests, 0 failures
 - ...
 
 ## Contrato

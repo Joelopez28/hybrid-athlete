@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { api } from "./api/client";
+import { api, getToken, setToken as saveToken } from "./api/client";
 import type { CreateSessionInput } from "./api/types";
 import { Header, type Tab } from "./components/Header";
 import { SessionForm } from "./components/SessionForm";
 import { useRukyData } from "./hooks/useRukyData";
+import { Auth } from "./pages/Auth";
 import { Community } from "./pages/Community";
 import { Compete } from "./pages/Compete";
 import { Dashboard } from "./pages/Dashboard";
@@ -11,8 +12,20 @@ import { History } from "./pages/History";
 import { Progress } from "./pages/Progress";
 
 function App() {
-  const { data, loading, error, reload } = useRukyData();
+  const [token, setTokenState] = useState<string | null>(() => getToken());
+  const { data, loading, error, reload } = useRukyData(Boolean(token));
   const [tab, setTab] = useState<Tab>("dashboard");
+
+  useEffect(() => {
+    const handleUnauthorized = () => setTokenState(null);
+    window.addEventListener("ruky:unauthorized", handleUnauthorized);
+    return () => window.removeEventListener("ruky:unauthorized", handleUnauthorized);
+  }, []);
+
+  function handleLogout() {
+    saveToken(null);
+    setTokenState(null);
+  }
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -25,6 +38,10 @@ function App() {
   async function handleDelete(id: string) {
     await api.deleteSession(id);
     reload();
+  }
+
+  if (!token) {
+    return <Auth onAuthenticated={setTokenState} />;
   }
 
   if (loading && !data) {
@@ -56,7 +73,7 @@ function App() {
 
   return (
     <div className="app">
-      <Header tab={tab} athlete={data.me} onNavigate={setTab} />
+      <Header tab={tab} athlete={data.me} onNavigate={setTab} onLogout={handleLogout} />
 
       {error && (
         <div className="inline-alert global-alert" role="alert">

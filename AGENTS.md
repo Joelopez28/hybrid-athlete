@@ -38,7 +38,7 @@ make up            # Postgres + PostgREST
 make install       # deps frontend (una vez)
 make backend       # Spring Boot en :8080
 make frontend      # Vite en :5173
-make test          # 41 tests backend + typecheck/build frontend
+make test          # 47 tests backend + typecheck/build frontend
 make smoke         # crea sesión, verifica volumen, lista y borra
 make full-up       # stack completo en Docker (:8081)
 make db-reset      # borra el volumen y re-siembra (destructivo)
@@ -48,8 +48,12 @@ Detalle y troubleshooting en `README.md`.
 
 ## Producto (MVP actual)
 
-- **Modo demo sin auth**: todas las escrituras pertenecen al atleta configurado en
-  `DEMO_ATHLETE_HANDLE` (default `ruky`). No hay login todavía; no simularlo.
+- **Auth JWT**: registro y login con BCrypt; Spring emite HS256 y PostgREST valida el mismo secreto.
+  Todos los endpoints `/api/**` salvo `/api/auth/**` requieren `Authorization: Bearer`.
+- **RLS**: `app_user` (JWT) solo ve/edita sus sesiones y series; perfiles y resultados de
+  competencia son visibles para la comunidad; el leaderboard usa la vista agregada
+  `athlete_weekly_activity`. El backend usa un token `app_service` (BYPASSRLS) solo para auth.
+- **Demo**: `ruky@ruky.demo` / `ruky1234` (también vale/nacho/sofi).
 - **Sesiones**: fuerza, WOD (AMRAP/EMOM/For Time/Intervalos), simulación HYROX, skills, cardio y mixto.
 - **Series**: ejercicio del catálogo, repeticiones, peso (kg), segundos (holds) y RPE.
 - **Progreso**: volumen semanal, PRs, minutos, mezcla de disciplinas.
@@ -63,7 +67,9 @@ Detalle y troubleshooting en `README.md`.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/api/me` | Atleta demo actual |
+| `POST` | `/api/auth/register` | Crea atleta + credenciales (201) |
+| `POST` | `/api/auth/login` | Devuelve JWT + atleta |
+| `GET` | `/api/me` | Atleta autenticado |
 | `GET` | `/api/athletes` | Comunidad |
 | `GET` | `/api/exercises?discipline=` | Catálogo |
 | `GET` | `/api/sessions?discipline=&type=&page=&size=` | Historial paginado con series |
@@ -96,17 +102,21 @@ Detalle y troubleshooting en `README.md`.
   ausente = 0; desempate por cantidad de primeros puestos.
 - Inscripción y resultados se hacen con **upsert** de PostgREST (`on_conflict` + `resolution=merge-duplicates`).
   `Ruky Elite` exige `athletes.tier = ELITE`; la competencia debe estar `LIVE`.
+- **Auth/RLS**: `athlete_credentials` (email + BCrypt hash) solo la lee `app_service`; nunca se
+  expone por PostgREST. `authenticator` puede `SET ROLE` a `app_user` o `app_service`.
+  `app_user` tiene RLS por `api.current_athlete_id()`; `app_service` tiene `BYPASSRLS`.
 - La RPC `api.create_session` inserta sesión + series en una transacción. Si cambiás su firma,
   actualizá `SessionWrite`, `SessionRepository` y `005_functions.sql`.
-- Cambios de esquema: archivo nuevo numerado (`008_*.sql`); no edites uno ya aplicado en producción.
-- `web_anon` es **solo desarrollo**. Producción exige `app_user` + JWT + RLS.
+- Cambios de esquema: archivo nuevo numerado (`009_*.sql`); no edites uno ya aplicado en producción.
+- `PGRST_JWT_SECRET` debe ser el mismo en backend, PostgREST y compose. En producción usá un secreto
+  real de ≥32 caracteres y HTTPS.
 
 ## Calidad obligatoria antes de cerrar
 
 1. `cd backend && ./mvnw test` (o `make test`) verde.
 2. `cd frontend && npm run typecheck && npm run build` verde.
 3. `make smoke` verde si tocaste API, datos o UI.
-4. Recorrido manual/E2E: registrar sesión, verla en historial, borrarla, ver PR/ranking.
+4. Recorrido manual/E2E: login → registrar sesión → historial → competir → logout/login.
 5. Sin secretos reales; usar `.env` (ignorado) y `.env.example`.
 6. Accesibilidad: labels, foco visible, contraste AA, teclado.
 
@@ -138,10 +148,10 @@ Detalle y troubleshooting en `README.md`.
 
 ## Deuda técnica / roadmap
 
-- **Auth real + RLS** por atleta; hoy todo pertenece al atleta demo.
 - **Cierre de competencias**: hoy no hay admin que valide resultados ni cierre un evento; el
   atleta puede editar su marca mientras la competencia esté `LIVE`.
 - **Criterios Ruky Elite**: benchmarks oficiales y flujo de postulación/clasificación.
+- **Sesiones de larga duración**: el JWT dura 12 h y no hay refresh/revocación; evaluar refresh tokens.
 - Migraciones Flyway/Liquibase; hoy init scripts de Docker.
 - E2E Playwright versionado en el repo y CI.
 - Paginación/caché del leaderboard; hoy recalcula en memoria sobre ≤2000 sesiones.

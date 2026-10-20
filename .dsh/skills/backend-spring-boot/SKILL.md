@@ -108,8 +108,10 @@ Nunca devuelvas el body crudo de PostgREST ni un stacktrace.
 3. Columna boolean `benchmark`, no `is_benchmark` (Jackson no la mapea).
 4. `BigDecimal` para pesos/RPE; nunca `double`.
 5. Ordenar series por `movement` y luego `setIndex` para agrupar en la UI.
-6. No hay auth: **no** aceptes `athleteId` desde el request; sale de `CurrentAthleteService`.
+6. **No** aceptes `athleteId` desde el request: sale de `AuthContext`/`CurrentAthleteService` (JWT).
 7. `StatsService` y `CompetitionScoring` recalculan en memoria; si crece el volumen, mover a vistas SQL.
+8. Auth: `JwtAuthFilter` protege `/api/**` excepto `/api/auth/**`; el cliente de usuario propaga el
+   Bearer a PostgREST y el cliente de servicio usa `app_service` (solo auth).
 8. En upsert, los campos omitidos **no** se borran (merge); para limpiar notas enviá `""` o modelá PATCH.
 
 ## Definition of done

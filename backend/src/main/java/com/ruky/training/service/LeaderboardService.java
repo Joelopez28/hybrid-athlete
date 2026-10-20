@@ -2,9 +2,9 @@ package com.ruky.training.service;
 
 import com.ruky.training.domain.Athlete;
 import com.ruky.training.domain.AthleteTier;
-import com.ruky.training.domain.TrainingSession;
+import com.ruky.training.domain.WeeklyActivity;
+import com.ruky.training.postgrest.ActivityRepository;
 import com.ruky.training.postgrest.AthleteRepository;
-import com.ruky.training.postgrest.SessionRepository;
 import com.ruky.training.web.LeaderboardEntryResponse;
 import com.ruky.training.web.LeaderboardMetric;
 import java.math.BigDecimal;
@@ -25,16 +25,16 @@ public class LeaderboardService {
 
     private static final int LIMIT = 20;
 
-    private final SessionRepository sessions;
+    private final ActivityRepository activity;
     private final AthleteRepository athletes;
     private final CurrentAthleteService currentAthlete;
     private final Clock clock;
 
-    public LeaderboardService(SessionRepository sessions,
+    public LeaderboardService(ActivityRepository activity,
                               AthleteRepository athletes,
                               CurrentAthleteService currentAthlete,
                               Clock clock) {
-        this.sessions = sessions;
+        this.activity = activity;
         this.athletes = athletes;
         this.currentAthlete = currentAthlete;
         this.clock = clock;
@@ -49,9 +49,9 @@ public class LeaderboardService {
                 .with(DayOfWeek.MONDAY)
                 .minusWeeks(weeks - 1L);
 
-        Map<UUID, List<TrainingSession>> byAthlete = new HashMap<>();
-        for (TrainingSession session : sessions.findAllSince(start)) {
-            byAthlete.computeIfAbsent(session.athleteId(), key -> new ArrayList<>()).add(session);
+        Map<UUID, List<WeeklyActivity>> byAthlete = new HashMap<>();
+        for (WeeklyActivity row : activity.findSince(start)) {
+            byAthlete.computeIfAbsent(row.athleteId(), key -> new ArrayList<>()).add(row);
         }
 
         Athlete me = currentAthlete.get();
@@ -60,11 +60,12 @@ public class LeaderboardService {
             if (tier != null && athlete.tier() != tier) {
                 continue;
             }
-            List<TrainingSession> athleteSessions = byAthlete.get(athlete.id());
-            if (athleteSessions == null || athleteSessions.isEmpty()) {
+            List<WeeklyActivity> athleteActivity = byAthlete.get(athlete.id());
+            if (athleteActivity == null || athleteActivity.isEmpty()) {
                 continue;
             }
-            rows.add(new Row(athlete, value(athleteSessions, effectiveMetric), athleteSessions.size()));
+            rows.add(new Row(athlete, value(athleteActivity, effectiveMetric),
+                    athleteActivity.stream().mapToInt(WeeklyActivity::sessions).sum()));
         }
 
         rows.sort(Comparator.comparing(Row::value).reversed()
@@ -90,16 +91,16 @@ public class LeaderboardService {
         return result;
     }
 
-    private static BigDecimal value(List<TrainingSession> sessions, LeaderboardMetric metric) {
+    private static BigDecimal value(List<WeeklyActivity> activity, LeaderboardMetric metric) {
         return switch (metric) {
-            case VOLUME -> sessions.stream()
-                    .map(TrainingSession::volumeKg)
+            case VOLUME -> activity.stream()
+                    .map(WeeklyActivity::volumeKg)
                     .reduce(BigDecimal.ZERO, BigDecimal::add)
                     .setScale(1, RoundingMode.HALF_UP);
-            case SESSIONS -> BigDecimal.valueOf(sessions.size());
-            case MINUTES -> BigDecimal.valueOf(sessions.stream()
-                    .mapToInt(session -> session.durationMin() == null ? 0 : session.durationMin())
-                    .sum());
+            case SESSIONS -> BigDecimal.valueOf(activity.stream()
+                    .mapToInt(WeeklyActivity::sessions).sum());
+            case MINUTES -> BigDecimal.valueOf(activity.stream()
+                    .mapToInt(WeeklyActivity::minutes).sum());
         };
     }
 

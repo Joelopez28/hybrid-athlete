@@ -10,13 +10,17 @@ interface RukyData {
   leaderboard: LeaderboardEntry[];
 }
 
-export function useRukyData() {
+export function useRukyData(enabled: boolean) {
   const [data, setData] = useState<RukyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     const controller = new AbortController();
     setLoading(true);
     setError(null);
@@ -44,7 +48,7 @@ export function useRukyData() {
       });
 
     return () => controller.abort();
-  }, [reloadKey]);
+  }, [enabled, reloadKey]);
 
   const reload = useCallback(() => setReloadKey((key) => key + 1), []);
 

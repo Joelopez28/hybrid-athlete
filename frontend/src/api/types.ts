@@ -298,3 +298,24 @@ export const SCORE_UNIT_LABELS: Record<ScoreType, string> = {
   REPS: "reps",
   WEIGHT: "kg",
 };
+
+export interface AuthResponse {
+  token: string;
+  athlete: Athlete;
+}
+
+export interface LoginInput {
+  identifier: string;
+  password: string;
+}
+
+export interface RegisterAthleteInput {
+  displayName: string;
+  handle: string;
+  email: string;
+  password: string;
+  sex?: Sex;
+  bodyweightKg?: number | null;
+  country?: string | null;
+  disciplines?: Discipline[];
+}

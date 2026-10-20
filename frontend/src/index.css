@@ -2054,6 +2054,198 @@ textarea:focus-visible {
   line-height: 1.55;
 }
 
+/* Auth */
+
+.header-account {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.logout-button {
+  color: var(--faint);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.auth-page {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  padding: 32px 20px;
+}
+
+.auth-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  width: 100%;
+  max-width: 1020px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 26px;
+  background: var(--surface);
+  box-shadow: 0 50px 100px -60px rgb(0 0 0 / 100%);
+}
+
+.auth-brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 14px;
+  padding: 48px;
+  background:
+    radial-gradient(480px 300px at 0% 0%, rgb(216 255 62 / 16%), transparent 65%),
+    radial-gradient(420px 320px at 100% 100%, rgb(97 230 255 / 8%), transparent 70%),
+    var(--bg-2);
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.auth-brand h1 {
+  max-width: 420px;
+  margin-bottom: 2px;
+  font-size: clamp(34px, 4.4vw, 52px);
+  line-height: 0.98;
+}
+
+.auth-brand > p {
+  max-width: 430px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 13.5px;
+  line-height: 1.65;
+}
+
+.auth-points {
+  display: grid;
+  gap: 8px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.auth-points li {
+  position: relative;
+  padding-left: 20px;
+}
+
+.auth-points li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.auth-demo {
+  width: fit-content;
+  margin-top: 8px !important;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--faint) !important;
+  font-size: 11px !important;
+}
+
+.auth-demo strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.auth-card {
+  padding: 42px 38px;
+  background: var(--surface);
+}
+
+.auth-card h2 {
+  margin: 18px 0 5px;
+  font-size: 24px;
+  letter-spacing: -0.025em;
+}
+
+.auth-card > .muted {
+  margin-bottom: 20px;
+  line-height: 1.55;
+}
+
+.auth-tabs {
+  display: inline-flex;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.auth-tabs button {
+  padding: 7px 13px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.auth-tabs button[aria-selected="true"] {
+  background: var(--accent);
+  color: var(--accent-ink);
+}
+
+.auth-form {
+  display: grid;
+  gap: 13px;
+}
+
+.auth-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.auth-form .field > span {
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.auth-form .field input,
+.auth-form .field select {
+  margin-top: 4px;
+}
+
+.auth-disciplines {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.auth-disciplines legend {
+  margin-bottom: 8px;
+  padding: 0;
+  color: var(--muted);
+  font-size: 10.5px;
+  font-weight: 650;
+}
+
+.auth-disciplines .choice-chip {
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: 11px;
+}
+
+.auth-form .form-message {
+  margin: 0;
+}
+
 /* Footer */
 
 .site-footer {
@@ -2109,6 +2301,10 @@ textarea:focus-visible {
   }
 
   .athlete-chip {
+    margin-left: 0;
+  }
+
+  .header-account {
     margin-left: auto;
   }
 
@@ -2261,6 +2457,39 @@ textarea:focus-visible {
 
   .competition-hero {
     padding: 18px;
+  }
+
+  .auth-page {
+    padding: 16px;
+  }
+
+  .auth-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-brand {
+    padding: 28px 24px;
+  }
+
+  .auth-brand h1 {
+    font-size: 34px;
+  }
+
+  .auth-brand .auth-points,
+  .auth-brand .auth-demo {
+    display: none;
+  }
+
+  .auth-card {
+    padding: 26px 20px;
+  }
+
+  .auth-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .logout-button {
+    display: none;
   }
 
   .event-head {

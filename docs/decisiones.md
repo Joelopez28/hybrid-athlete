@@ -32,14 +32,31 @@ consecuencias. Si cambiás una, agregá un ADR nuevo que la reemplace.
 - **Consecuencias**: dos round-trips BFF→PostgREST y lógica en PL/pgSQL. Si se cambia la firma hay que
   actualizar la función, `SessionWrite` y los tests.
 
-## ADR-004 — Modo demo sin auth (explícito)
+## ADR-004 — Auth JWT + RLS para aislar atletas
 
 - **Fecha**: 2026-10-20
-- **Contexto**: validar producto y UI rápido, sin un proveedor de identidad.
-- **Decisión**: todas las escrituras pertenecen al atleta `DEMO_ATHLETE_HANDLE` (default `ruky`);
-  `web_anon` tiene permisos de desarrollo y no hay RLS.
-- **Consecuencias**: no es multi-usuario ni seguro para datos reales. **Bloqueante** para producción:
-  auth + `app_user` + RLS + tests de aislamiento.
+- **Contexto**: el modo demo con un único atleta no sirve para usuarios reales; las sesiones y
+  credenciales deben quedar aisladas.
+- **Decisión**: registro/login en el BFF con BCrypt; el backend emite un JWT HS256 (`sub` = athlete
+  UUID, `role` = `app_user`) firmado con el mismo secreto que PostgREST. PostgREST valida el token y
+  ejecuta como `app_user`; RLS limita sesiones y series al dueño. `athlete_credentials` no tiene
+  grants para `app_user`.
+- **Consecuencias**: se requiere `PGRST_JWT_SECRET` compartido y HTTPS. El JWT dura 12 h y no hay
+  refresh/revocación. El frontend guarda el token en `localStorage` (riesgo XSS aceptado en MVP).
+
+## ADR-009 — Rol de servicio y vista agregada para la comunidad
+
+- **Fecha**: 2026-10-20
+- **Contexto**: el backend necesita leer credenciales por email/handle y registrar atletas antes de
+  que exista un usuario autenticado; además el leaderboard comunitario necesita agregados de todos
+  los atletas sin exponer sus sesiones.
+- **Decisión**: `app_service` (BYPASSRLS) se usa **solo** en el cliente interno del BFF para auth.
+  Las requests de usuario usan `app_user`. El leaderboard lee
+  `api.athlete_weekly_activity`, una vista propiedad del rol de migración que agrega volumen,
+  sesiones y minutos por atleta/semana.
+- **Consecuencias**: el token de servicio nunca sale del backend. Cualquier cambio en la vista o en
+  las políticas RLS debe cubrirse con tests de aislamiento. Los resultados de competencia y los
+  perfiles siguen siendo legibles por la comunidad.
 
 ## ADR-005 — PRs solo de fuerza/skills
 

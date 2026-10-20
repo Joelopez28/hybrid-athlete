@@ -6,13 +6,14 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.client.RestClient;
 
 @Repository
 public class ExerciseRepository extends PostgrestRepository {
 
-    public ExerciseRepository(RestClient client) {
+    public ExerciseRepository(@Qualifier("postgrestUserClient") RestClient client) {
         super(client);
     }
 

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.HttpStatusCode;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.client.RestClient;
 
@@ -20,7 +21,7 @@ public class CompetitionRepository extends PostgrestRepository {
     private static final String REGISTRATIONS = "/competition_registrations";
     private static final String RESULTS = "/competition_results";
 
-    public CompetitionRepository(RestClient client) {
+    public CompetitionRepository(@Qualifier("postgrestUserClient") RestClient client) {
         super(client);
     }
 

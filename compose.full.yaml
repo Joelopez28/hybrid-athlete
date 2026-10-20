@@ -34,6 +34,7 @@ services:
       context: ./backend
     environment:
       POSTGREST_URL: http://postgrest:3000
+      PGRST_JWT_SECRET: ${PGRST_JWT_SECRET:-dev-only-secret-change-me-please-32chars}
       CORS_ALLOWED_ORIGINS: http://localhost:8081
     depends_on:
       postgrest:

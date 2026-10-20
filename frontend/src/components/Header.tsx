@@ -7,6 +7,7 @@ interface Props {
   tab: Tab;
   athlete: Athlete;
   onNavigate: (tab: Tab) => void;
+  onLogout: () => void;
 }
 
 const NAV: { id: Tab; label: string }[] = [
@@ -18,7 +19,7 @@ const NAV: { id: Tab; label: string }[] = [
   { id: "community", label: "Comunidad" },
 ];
 
-export function Header({ tab, athlete, onNavigate }: Props) {
+export function Header({ tab, athlete, onNavigate, onLogout }: Props) {
   return (
     <header className="site-header">
       <div className="header-inner">
@@ -51,16 +52,21 @@ export function Header({ tab, athlete, onNavigate }: Props) {
           ))}
         </nav>
 
-        <div className="athlete-chip">
-          <span className="avatar avatar-sm" aria-hidden="true">
-            {initials(athlete.displayName)}
-          </span>
-          <span className="athlete-chip-copy">
-            <strong>{athlete.displayName}</strong>
-            <span className={`tier-badge tier-${athlete.tier.toLowerCase()}`}>
-              {athlete.tier === "ELITE" ? "Ruky Elite" : "Open"}
+        <div className="header-account">
+          <div className="athlete-chip">
+            <span className="avatar avatar-sm" aria-hidden="true">
+              {initials(athlete.displayName)}
             </span>
-          </span>
+            <span className="athlete-chip-copy">
+              <strong>{athlete.displayName}</strong>
+              <span className={`tier-badge tier-${athlete.tier.toLowerCase()}`}>
+                {athlete.tier === "ELITE" ? "Ruky Elite" : "Open"}
+              </span>
+            </span>
+          </div>
+          <button type="button" className="text-button logout-button" onClick={onLogout}>
+            Salir
+          </button>
         </div>
       </div>
     </header>

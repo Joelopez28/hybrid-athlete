@@ -46,7 +46,7 @@ POST /rpc/create_session
 
 La función inserta sesión + series en una transacción y devuelve el `uuid`. Reglas:
 - `nullif(...)` para campos opcionales; `coalesce(...,1)` para `set_index`.
-- `grant execute` a `web_anon` (dev).
+- `grant execute` a `app_user`; `web_anon` no tiene acceso a tablas.
 - Tras crear la función: `NOTIFY pgrst, 'reload schema';` (ya está al final de `005_functions.sql`).
 - PostgREST necesita el wrapper `payload`; documentado en el backend.
 
@@ -83,13 +83,16 @@ SQL y consultarlas por PostgREST.
 
 ## Roles y RLS
 
-- `authenticator` (login, `NOINHERIT`), `web_anon` (dev), `grant web_anon to authenticator`.
-- Producción: `app_user` + JWT + RLS por `owner_id`/`sub`; `web_anon` desaparece.
+- `authenticator` (login, `NOINHERIT`), `app_user` (JWT, RLS), `app_service` (BYPASSRLS, solo backend).
+- `app_user` no puede leer `athlete_credentials`; el hash BCrypt solo lo ve `app_service`.
+- Políticas RLS: sesiones/series por `current_athlete_id()`; perfiles/resultados de competencia
+  legibles por la comunidad; leaderboard por `athlete_weekly_activity` (vista agregada).
+- Producción: `PGRST_JWT_SECRET` real, HTTPS y tests de aislamiento.
 - El owner de la tabla no debe saltarse RLS en producción (usar `FORCE ROW LEVEL SECURITY`).
 
 ## Seed y reset
 
-- `002_schema.sql`, `003_exercises.sql`, `004_demo_data.sql`, `005_functions.sql` corren **solo** al
+- `002_schema.sql` a `008_auth.sql` corren **solo** al
   crear el volumen.
 - El seed usa `current_date` para que el dashboard tenga actividad de la semana actual.
 - `make db-reset` destruye el volumen; nunca en producción.

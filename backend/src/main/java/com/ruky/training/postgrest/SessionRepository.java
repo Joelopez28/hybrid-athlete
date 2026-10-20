@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Repository;
 import org.springframework.web.client.RestClient;
 
@@ -18,7 +19,7 @@ public class SessionRepository extends PostgrestRepository {
     private static final String SESSIONS = "/training_sessions";
     private static final String WITH_ENTRIES = "*,session_entries(*)";
 
-    public SessionRepository(RestClient client) {
+    public SessionRepository(@Qualifier("postgrestUserClient") RestClient client) {
         super(client);
     }
 

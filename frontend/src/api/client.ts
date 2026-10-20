@@ -1,6 +1,9 @@
 import type {
   Athlete,
   AthleteTier,
+  AuthResponse,
+  LoginInput,
+  RegisterAthleteInput,
   CompetitionDetail,
   CompetitionSummary,
   CreateSessionInput,
@@ -13,6 +16,28 @@ import type {
   SubmitCompetitionResultInput,
   TrainingSession,
 } from "./types";
+
+const TOKEN_KEY = "ruky.token";
+
+export function getToken(): string | null {
+  try {
+    return window.localStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setToken(token: string | null): void {
+  try {
+    if (token) {
+      window.localStorage.setItem(TOKEN_KEY, token);
+    } else {
+      window.localStorage.removeItem(TOKEN_KEY);
+    }
+  } catch {
+    // Storage can be unavailable in hardened browsers.
+  }
+}
 
 export class ApiError extends Error {
   readonly status: number;
@@ -32,6 +57,10 @@ async function request<T>(path: string, init: RequestOptions = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
+  }
+  const token = getToken();
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
 
   let response: Response;
@@ -54,6 +83,10 @@ async function request<T>(path: string, init: RequestOptions = {}): Promise<T> {
     } catch {
       // Non-JSON error body.
     }
+    if (response.status === 401 && !path.startsWith("/auth/")) {
+      setToken(null);
+      window.dispatchEvent(new Event("ruky:unauthorized"));
+    }
     throw new ApiError(response.status, message);
   }
 
@@ -75,6 +108,20 @@ function query(params: Record<string, string | number | undefined | null>): stri
 }
 
 export const api = {
+  async login(input: LoginInput): Promise<AuthResponse> {
+    return request<AuthResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
+  async registerAthlete(input: RegisterAthleteInput): Promise<AuthResponse> {
+    return request<AuthResponse>("/auth/register", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
+
   me(signal?: AbortSignal): Promise<Athlete> {
     return request<Athlete>("/me", { signal });
   },

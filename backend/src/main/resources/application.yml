@@ -26,8 +26,9 @@ app:
     read-timeout: 8s
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
-  demo:
-    athlete-handle: ${DEMO_ATHLETE_HANDLE:ruky}
+  jwt:
+    secret: ${PGRST_JWT_SECRET:dev-only-secret-change-me-please-32chars}
+    ttl: ${JWT_TTL:12h}
 
 logging:
   level:

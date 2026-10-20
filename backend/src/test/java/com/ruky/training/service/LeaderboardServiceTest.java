@@ -2,24 +2,22 @@ package com.ruky.training.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 import com.ruky.training.domain.Athlete;
 import com.ruky.training.domain.AthleteTier;
 import com.ruky.training.domain.Discipline;
-import com.ruky.training.domain.SessionEntry;
-import com.ruky.training.domain.SessionType;
 import com.ruky.training.domain.Sex;
-import com.ruky.training.domain.TrainingSession;
+import com.ruky.training.domain.WeeklyActivity;
+import com.ruky.training.postgrest.ActivityRepository;
 import com.ruky.training.postgrest.AthleteRepository;
-import com.ruky.training.postgrest.SessionRepository;
 import com.ruky.training.web.LeaderboardEntryResponse;
 import com.ruky.training.web.LeaderboardMetric;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
 import java.util.UUID;
@@ -35,9 +33,10 @@ class LeaderboardServiceTest {
     private static final UUID ME = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static final UUID VALE = UUID.fromString("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");
     private static final UUID SOFI = UUID.fromString("cccccccc-cccc-cccc-cccc-cccccccccccc");
+    private static final LocalDate WEEK = LocalDate.of(2026, 10, 19);
 
     @Mock
-    private SessionRepository sessions;
+    private ActivityRepository activity;
 
     @Mock
     private AthleteRepository athletes;
@@ -53,33 +52,35 @@ class LeaderboardServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new LeaderboardService(sessions, athletes, currentAthlete,
+        service = new LeaderboardService(activity, athletes, currentAthlete,
                 Clock.fixed(Instant.parse("2026-10-21T12:00:00Z"), ZoneOffset.UTC));
-        when(currentAthlete.get()).thenReturn(me);
-        when(athletes.findAll()).thenReturn(List.of(me, vale, sofi));
+        lenient().when(currentAthlete.get()).thenReturn(me);
+        lenient().when(athletes.findAll()).thenReturn(List.of(me, vale, sofi));
     }
 
     @Test
-    void shouldRankByVolumeAndIncludeOnlyAthletesWithSessions() {
-        when(sessions.findAllSince(any(LocalDate.class))).thenReturn(List.of(
-                session(ME, "600"), session(ME, "400"),
-                session(VALE, "2000")));
+    void shouldRankByAggregatedVolumeAndIncludeOnlyActiveAthletes() {
+        when(activity.findSince(any(LocalDate.class))).thenReturn(List.of(
+                weekly(ME, 2, 120, "600"), weekly(ME, 1, 60, "400"),
+                weekly(VALE, 4, 240, "2000")));
 
         List<LeaderboardEntryResponse> board = service.get(4, LeaderboardMetric.VOLUME, null);
 
         assertThat(board).hasSize(2);
         assertThat(board.get(0).handle()).isEqualTo("vale");
         assertThat(board.get(0).value()).isEqualByComparingTo("2000");
-        assertThat(board.get(0).rank()).isEqualTo(1);
+        assertThat(board.get(0).sessions()).isEqualTo(4);
         assertThat(board.get(1).handle()).isEqualTo("ruky");
+        assertThat(board.get(1).value()).isEqualByComparingTo("1000");
+        assertThat(board.get(1).sessions()).isEqualTo(3);
         assertThat(board.get(1).me()).isTrue();
-        assertThat(board.get(1).sessions()).isEqualTo(2);
     }
 
     @Test
     void shouldFilterEliteDivision() {
-        when(sessions.findAllSince(any(LocalDate.class))).thenReturn(List.of(
-                session(ME, "600"), session(VALE, "2000"), session(SOFI, "3000")));
+        when(activity.findSince(any(LocalDate.class))).thenReturn(List.of(
+                weekly(ME, 1, 60, "600"), weekly(VALE, 1, 60, "2000"),
+                weekly(SOFI, 1, 60, "3000")));
 
         List<LeaderboardEntryResponse> elite = service.get(4, LeaderboardMetric.VOLUME, AthleteTier.ELITE);
 
@@ -88,16 +89,15 @@ class LeaderboardServiceTest {
     }
 
     @Test
-    void shouldRankBySessionCount() {
-        when(sessions.findAllSince(any(LocalDate.class))).thenReturn(List.of(
-                session(ME, "100"), session(ME, "100"),
-                session(VALE, "500")));
+    void shouldRankByAggregatedSessions() {
+        when(activity.findSince(any(LocalDate.class))).thenReturn(List.of(
+                weekly(ME, 2, 120, "100"), weekly(VALE, 5, 240, "500")));
 
         List<LeaderboardEntryResponse> board = service.get(4, LeaderboardMetric.SESSIONS, null);
 
-        assertThat(board.get(0).handle()).isEqualTo("ruky");
-        assertThat(board.get(0).value()).isEqualByComparingTo("2");
-        assertThat(board.get(1).value()).isEqualByComparingTo("1");
+        assertThat(board.get(0).handle()).isEqualTo("vale");
+        assertThat(board.get(0).value()).isEqualByComparingTo("5");
+        assertThat(board.get(1).value()).isEqualByComparingTo("2");
     }
 
     private static Athlete athlete(UUID id, String handle, String name, AthleteTier tier) {
@@ -105,11 +105,7 @@ class LeaderboardServiceTest {
                 tier, List.of(Discipline.POWERLIFTING));
     }
 
-    private static TrainingSession session(UUID athleteId, String weight) {
-        SessionEntry entry = new SessionEntry(UUID.randomUUID(), UUID.randomUUID(), "Back Squat",
-                1, 1, new BigDecimal(weight), null, null);
-        return new TrainingSession(UUID.randomUUID(), athleteId, LocalDate.of(2026, 10, 20),
-                Discipline.POWERLIFTING, SessionType.STRENGTH, "Sesión", null, 60, null,
-                null, null, null, OffsetDateTime.now(), List.of(entry));
+    private static WeeklyActivity weekly(UUID athleteId, int sessions, int minutes, String volume) {
+        return new WeeklyActivity(athleteId, WEEK, sessions, minutes, new BigDecimal(volume));
     }
 }

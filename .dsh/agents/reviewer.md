@@ -12,8 +12,8 @@ es al atleta/usuario y a la mantenibilidad, no a que el cambio “se vea bien”
 
 ## Qué buscar
 
-1. **Privacidad**: hoy no hay auth; `athleteId` no debe venir del request y no debe haber datos de
-   otros atletas accesibles por id.
+1. **Privacidad/RLS**: `athleteId` no viene del request; JWT + `app_user` + políticas deben impedir
+   leer/editar sesiones de otro atleta. `athlete_credentials` no debe ser legible por `app_user`.
 2. **Cálculos**: volumen reps×kg, PRs solo STRENGTH/SKILL, holds por segundos, ranking comparable.
 3. **Datos**: RPC atómica, wrapper `payload`, grants, migración no destructiva, seed reproducible.
 4. **Contrato**: DTOs Java ↔ tipos TS ↔ README; nullables.

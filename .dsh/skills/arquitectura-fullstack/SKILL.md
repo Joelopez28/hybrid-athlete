@@ -84,8 +84,8 @@ competencias son fase 2: no inventes una taxonomía universal de kilos.
 
 - **Admin de competencias**: validar resultados, cerrar eventos y publicar ranking final.
 - **Ruky Elite**: criterios oficiales + postulación; no uses el ranking de volumen como clasificación.
-- **Auth/RLS**: reemplazar `CurrentAthleteService` por el principal autenticado; el resto del dominio
-  no debería cambiar.
+- **Auth/RLS** (implementado): JWT HS256 emitido por Spring, validado por PostgREST; `app_user` con
+  RLS; `CurrentAthleteService` sale de `AuthContext`. El leaderboard usa una vista agregada.
 
 ## Señales de diseño equivocado
 

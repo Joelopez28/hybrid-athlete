@@ -7,7 +7,10 @@ import com.fasterxml.jackson.databind.PropertyNamingStrategies;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.ruky.training.security.AuthContext;
+import com.ruky.training.security.JwtService;
 import java.net.http.HttpClient;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,7 +25,28 @@ import org.springframework.web.client.RestClient;
 public class RestClientConfig {
 
     @Bean
-    RestClient postgrestRestClient(PostgrestProperties properties) {
+    @Qualifier("postgrestUserClient")
+    RestClient postgrestUserClient(PostgrestProperties properties) {
+        return baseBuilder(properties)
+                .requestInterceptor((request, body, execution) -> {
+                    String token = AuthContext.token();
+                    if (token != null) {
+                        request.getHeaders().setBearerAuth(token);
+                    }
+                    return execution.execute(request, body);
+                })
+                .build();
+    }
+
+    @Bean
+    @Qualifier("postgrestServiceClient")
+    RestClient postgrestServiceClient(PostgrestProperties properties, JwtService jwtService) {
+        return baseBuilder(properties)
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + jwtService.serviceToken())
+                .build();
+    }
+
+    private RestClient.Builder baseBuilder(PostgrestProperties properties) {
         ObjectMapper postgrestMapper = JsonMapper.builder()
                 .addModule(new JavaTimeModule())
                 .propertyNamingStrategy(PropertyNamingStrategies.SNAKE_CASE)
@@ -46,7 +70,6 @@ public class RestClientConfig {
                 .requestFactory(factory)
                 .messageConverters(converters -> converters.add(0, jackson))
                 .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
-                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .build();
+                .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE);
     }
 }

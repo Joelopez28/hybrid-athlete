@@ -56,7 +56,7 @@ VERDE / VERDE CON OBSERVACIONES / ROJO
 ## Evidencia
 - `docker compose config -q` → ok
 - `curl :3000/training_sessions` → 200
-- `./mvnw test` → 41 tests, 0 failures
+- `./mvnw test` → 47 tests, 0 failures
 - `npm run typecheck && npm run build` → ok
 - `make smoke` → created/listed/deleted, total restaurado
 - UI E2E → crear/historial/borrar/progreso/Elite/mobile
