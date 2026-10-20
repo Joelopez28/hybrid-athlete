@@ -1,10 +1,14 @@
 import type {
-  ApiErrorBody,
-  CreateTaskInput,
+  Athlete,
+  AthleteTier,
+  CreateSessionInput,
+  Discipline,
+  Exercise,
+  LeaderboardEntry,
+  LeaderboardMetric,
   Page,
-  Task,
-  TaskStatus,
-  UpdateTaskInput,
+  Stats,
+  TrainingSession,
 } from "./types";
 
 export class ApiError extends Error {
@@ -17,14 +21,11 @@ export class ApiError extends Error {
   }
 }
 
-interface ListParams {
-  status?: TaskStatus;
-  page?: number;
-  size?: number;
+interface RequestOptions extends RequestInit {
   signal?: AbortSignal;
 }
 
-async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+async function request<T>(path: string, init: RequestOptions = {}): Promise<T> {
   const headers = new Headers(init.headers);
   if (init.body !== undefined && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -43,12 +44,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     let message = `Error ${response.status}`;
     try {
-      const body = (await response.json()) as Partial<ApiErrorBody>;
+      const body = (await response.json()) as { message?: string };
       if (body.message) {
         message = body.message;
       }
     } catch {
-      // The error body is not JSON: keep the status-based message.
+      // Non-JSON error body.
     }
     throw new ApiError(response.status, message);
   }
@@ -59,31 +60,58 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await response.json()) as T;
 }
 
-export const api = {
-  listTasks({ status, page = 0, size = 20, signal }: ListParams = {}): Promise<Page<Task>> {
-    const params = new URLSearchParams({ page: String(page), size: String(size) });
-    if (status) {
-      params.set("status", status);
+function query(params: Record<string, string | number | undefined | null>): string {
+  const search = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== "") {
+      search.set(key, String(value));
     }
-    return request<Page<Task>>(`/tasks?${params.toString()}`, { signal });
+  }
+  const encoded = search.toString();
+  return encoded ? `?${encoded}` : "";
+}
+
+export const api = {
+  me(signal?: AbortSignal): Promise<Athlete> {
+    return request<Athlete>("/me", { signal });
   },
 
-  createTask(input: CreateTaskInput, signal?: AbortSignal): Promise<Task> {
-    return request<Task>("/tasks", {
+  exercises(signal?: AbortSignal): Promise<Exercise[]> {
+    return request<Exercise[]>("/exercises", { signal });
+  },
+
+  sessions(limit = 50, signal?: AbortSignal): Promise<Page<TrainingSession>> {
+    return request<Page<TrainingSession>>(`/sessions?size=${limit}`, { signal });
+  },
+
+  stats(weeks = 8, signal?: AbortSignal): Promise<Stats> {
+    return request<Stats>(`/stats?weeks=${weeks}`, { signal });
+  },
+
+  leaderboard(
+    weeks: number,
+    metric: LeaderboardMetric,
+    tier?: AthleteTier | null,
+    signal?: AbortSignal,
+  ): Promise<LeaderboardEntry[]> {
+    return request<LeaderboardEntry[]>(
+      `/leaderboard${query({ weeks, metric, tier })}`,
+      { signal },
+    );
+  },
+
+  createSession(input: CreateSessionInput): Promise<TrainingSession> {
+    return request<TrainingSession>("/sessions", {
       method: "POST",
       body: JSON.stringify(input),
-      signal,
     });
   },
 
-  updateTask(id: string, patch: UpdateTaskInput): Promise<Task> {
-    return request<Task>(`/tasks/${id}`, {
-      method: "PATCH",
-      body: JSON.stringify(patch),
-    });
+  deleteSession(id: string): Promise<void> {
+    return request<void>(`/sessions/${id}`, { method: "DELETE" });
   },
 
-  deleteTask(id: string): Promise<void> {
-    return request<void>(`/tasks/${id}`, { method: "DELETE" });
+  exercisesByDiscipline(discipline: Discipline, signal?: AbortSignal): Promise<Exercise[]> {
+    return request<Exercise[]>(`/exercises${query({ discipline })}`, { signal });
   },
 };

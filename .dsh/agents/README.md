@@ -1,26 +1,26 @@
-# Briefs de subagentes
+# Briefs de subagentes (RUKY)
 
 Cada archivo es un **prompt listo para pegar** en `subagent` (o `subagent_fork` si querés que herede
-la conversación). No son agentes auto-registrados por DSH: son contratos de trabajo reutilizables.
+la conversación). No son agentes auto-registrados: son contratos de trabajo reutilizables.
 
-## Cómo usarlos
+## Uso
 
 ```text
-subagent:
-  description: "Backend: endpoint de comentarios"
-  prompt: |
-    Leé y seguí /ruta/al/repo/.dsh/agents/backend-dev.md.
-    Tarea: agregar CRUD de comentarios por tarea, con validación y tests.
-    Contexto: contrato propuesto ...
+subagent(
+  description: "Backend: PRs por tiempo",
+  prompt: "Leé .dsh/agents/backend-dev.md y .dsh/skills/backend-spring-boot/SKILL.md.
+           Tarea: agregar PR de holds (segundos) a /api/stats con tests.
+           No toques frontend. Reportá comandos y resultado."
+)
 ```
 
-Reglas de convivencia:
+## Reglas
 
-- **Un dueño por área**: backend, frontend, datos/infra. El reviewer no edita.
-- El brief ya incluye cargar `AGENTS.md` y la skill; no repitas todo el contexto en el prompt.
-- Si el subagente cambia el contrato, debe avisarlo en su reporte y actualizar `frontend/src/api/types.ts`
-  solo si el humano lo autorizó; si no, lo deja anotado.
-- Paralelizá solo áreas independientes (backend y frontend pueden ir juntos **si el contrato ya está fijado**).
+- **Un dueño por área**: backend (`backend/`), frontend (`frontend/`), datos/infra (`db/`,
+  `compose*.yaml`, Dockerfiles). Reviewer no edita.
+- El brief ya incluye cargar `AGENTS.md` y su skill; no repitas todo el contexto.
+- Si cambia el contrato, se actualiza `frontend/src/api/types.ts` y se avisa al humano.
+- Paralelizá solo áreas independientes con el contrato ya fijado.
 - Cierre esperado: archivos, comandos ejecutados, resultado y riesgos.
 
 ## Mapa
@@ -31,12 +31,17 @@ Reglas de convivencia:
 | `backend-dev.md` | `backend/` | `backend-spring-boot` |
 | `frontend-dev.md` | `frontend/` | `frontend-react-ts` |
 | `reviewer.md` | solo lectura | `revision-codigo` |
-| `integrator.md` | verificación y smoke | `verificacion-fullstack` |
+| `integrator.md` | verificación/E2E | `verificacion-fullstack` |
 
-## Orden recomendado para una feature
+## Orden recomendado
 
-1. Humano + `arquitectura-fullstack`: fijar contrato y decisión.
-2. `data-dev` (tabla/grants) y `backend-dev` en secuencia si el backend depende del esquema;
-   `frontend-dev` en paralelo contra el contrato tipado.
-3. `integrator`: `make test` + `make smoke`.
-4. `reviewer`: informe; el dueño aplica bloqueantes.
+1. Humano + `arquitectura-fullstack`: fijar contrato y si toca schema/RPC.
+2. `data-dev` (schema/RPC/seed) → `backend-dev` (endpoint/stats) → `frontend-dev` (UI) contra el
+   contrato tipado.
+3. `integrator`: `make test` + `make smoke` + recorrido UI.
+4. `reviewer`: bloqueantes; el dueño aplica.
+
+## Contexto de producto
+
+RUKY registra sesiones de CrossFit, powerlifting, calistenia y HYROX, calcula volumen/PRs y muestra
+un leaderboard de comunidad con división **Ruky Elite**. Auth y competencias Strong Fit son fase 2.

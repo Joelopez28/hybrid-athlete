@@ -1,123 +1,92 @@
 ---
 name: frontend-react-ts
-description: Implementar UI en React 19 + TypeScript + Vite contra el contrato /api. Cliente tipado, hooks, formularios accesibles y estados de carga/error.
-whenToUse: Al crear o modificar componentes, hooks, cliente API, estilos o formularios del frontend.
+description: Implementar la UI de RUKY en React 19 + TypeScript + Vite: dashboard, registro de sesiones, historial, progreso y comunidad.
+whenToUse: Al crear o modificar páginas, formularios, hooks, cliente API o estilos del frontend.
 ---
 
-# Frontend React + TypeScript
+# Frontend React + TypeScript (RUKY)
 
 ## Mapa
 
 ```text
-src/
-├── api/types.ts        Contrato espejo del backend (fuente de tipos)
-├── api/client.ts       fetch tipado, query params, ApiError
-├── hooks/useTasks.ts   estado remoto + mutaciones
-├── components/         TaskForm, TaskList, TaskItem, StatusFilter, ...
-├── App.tsx             composición de pantalla
-└── index.css           tokens CSS, layout, componentes
+src/api/types.ts        Contrato espejo del backend (fuente de tipos)
+src/api/client.ts       fetch tipado, query params, ApiError
+src/hooks/useRukyData.ts   me + exercises + sessions + stats + leaderboard
+src/hooks/useLeaderboard.ts fetch del ranking con filtros
+src/components/Header.tsx  navegación y atleta
+src/components/SessionForm.tsx  formulario dinámico por tipo
+src/components/SessionCard.tsx  tarjeta + series desplegables
+src/components/WeeklyVolumeChart.tsx
+src/pages/              Dashboard, History, Progress, Community
+src/App.tsx             tabs y composición
+src/index.css           tokens, layout, dark UI
 ```
 
-Dependencias: React 19, Vite 6, TypeScript 5.7. **No agregues** librería de estado, router ni UI kit
-sin una decisión en `docs/decisiones.md`. Si la app crece, el orden es: router → TanStack Query → UI kit.
+Dependencias: React 19, Vite 6, TypeScript 5.7. **Sin router, sin UI kit, sin librería de charts.**
+Si la app crece, el orden es: router → TanStack Query → librería de UI, cada uno con ADR.
+
+## Navegación y estado
+
+- `App` mantiene `tab: "dashboard" | "log" | "history" | "progress" | "community"`.
+- `useRukyData` carga todo en paralelo y expone `reload()`. Las mutaciones hacen `await` y `reload()`.
+- `useLeaderboard` es independiente porque la comunidad cambia métrica/período/división.
+- No dupliques datos: `stats` viene del backend; no recalcules volumen ni PRs en React.
+
+## Formulario de sesión (lo más delicado)
+
+- `discipline` define el tipo por defecto y el catálogo de ejercicios visible.
+- Tipos con series: `STRENGTH`, `SKILL`, `MIXED`. El resto usa resultado (`WOD`, `HYROX_SIM`).
+- Serie: `exerciseId`, `reps`, `weightKg`, `seconds`. Holds usan segundos sin reps.
+- Al cambiar de disciplina, reiniciá las series con un ejercicio válido.
+- Validación de cliente: título, al menos una serie con reps/segundos, score en WOD/HYROX.
+- El servidor manda: mostrá `ApiError.message` tal cual.
+- Después de guardar: limpiar título/notas/score, dejar disciplina y fecha, y llamar `onSaved()`.
 
 ## Contrato y cliente
 
-`api/types.ts` debe coincidir **literalmente** con lo que devuelve Spring:
+- `api/types.ts` debe coincidir con el backend; los campos nullable son opcionales porque el backend
+  usa `NON_NULL`.
+- Nunca armes URLs de PostgREST. Todo pasa por `/api`.
+- `fetch` verifica `res.ok`, maneja 204 y convierte errores a `ApiError`.
+- Cancelá efectos con `AbortController`; ignorá `AbortError`.
 
-```ts
-export const TASK_STATUSES = ["TODO", "IN_PROGRESS", "DONE"] as const;
-export type TaskStatus = (typeof TASK_STATUSES)[number];
+## Diseño
 
-export interface Task {
-  id: string;
-  title: string;
-  description: string | null;
-  status: TaskStatus;
-  priority: "LOW" | "MEDIUM" | "HIGH";
-  dueDate: string | null;   // yyyy-MM-dd
-  createdAt: string;        // ISO-8601
-  updatedAt: string;
-}
-```
+- Dark UI (`--bg #080b10`) con acento lima (`--accent #d8ff3e`), superficies `#101620`.
+- Tipografía fuerte, títulos con tracking negativo, etiquetas uppercase pequeñas.
+- Colores por disciplina: CrossFit naranja, powerlifting celeste, calistenia lima, HYROX violeta.
+- Tokens en `:root`; no valores mágicos nuevos.
+- Responsive: stats 4→2 columnas; grids 2→1; nav se envuelve en mobile.
+- Estados obligatorios: loading, vacío, error con reintento.
+- Foco visible y contraste AA; targets ≥ 40px.
 
-`api/client.ts` centraliza todo `fetch`:
+## Pitfalls
 
-```ts
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    headers: { "Content-Type": "application/json", ...init?.headers },
-    ...init,
-  });
-  if (!res.ok) throw await toApiError(res);
-  return res.status === 204 ? (undefined as T) : res.json();
-}
-```
+1. La tabla de series tiene `min-width: 560px`; el contenedor debe permitir scroll horizontal
+   (`min-width: 0` en el fieldset) o rompe el viewport móvil.
+2. `entries` puede ser `[]`; no asumas que hay series.
+3. `bestWeightKg`, `bestReps` y `bestSeconds` son mutuamente excluyentes en la práctica: mostrá el
+   primero disponible, no “0 reps”.
+4. Fechas `yyyy-MM-dd`: parsealas como locales (`T00:00:00`), no con `new Date("...")` y UTC.
+5. El ranking de la comunidad se refetch al cambiar filtros; no filtres sólo en cliente si el backend
+   puede hacerlo.
+6. `window.confirm` se usa para borrar; si se reemplaza por modal, mantener foco y Escape.
 
-- Nunca armes URLs de PostgREST ni uses `VITE_POSTGREST_URL`.
-- Errores: parseá `{ message, status }`; mostrá `message`, nunca `[object Object]`.
-- Listado: `?page&size&status`; el backend ya devuelve `{ items, total, ... }`.
-- Cancelá al desmontar/cambiar filtro con `AbortController`; ignorá `AbortError`.
-
-## Hook de datos (patrón único)
-
-```ts
-const [state, setState] = useState<{ status: "loading" | "ready" | "error"; data: Task[]; error?: string }>(...)
-```
-
-Un solo hook `useTasks(filter)` expone `{ items, total, loading, error, reload, createTask, updateTask, deleteTask }`.
-Las mutaciones hacen `await` y luego `reload()`; nada de estados duplicados. Si agregás actualización
-optimista, guardá el snapshot y revertí en error.
-
-Reglas:
-- `useEffect` solo para suscripciones/sincronización; el fetch inicial va ahí con cleanup.
-- Dependencias honestas del efecto (`status`, `page`); sin `eslint-disable`.
-- No derives estado que puedas calcular en render (`filtered = items.filter(...)`).
-- Keys estables (`task.id`), nunca índices para listas reordenables.
-
-## Formularios accesibles
-
-- `<label htmlFor>` + `id`; errores con `aria-describedby` y `aria-invalid`.
-- Validación de cliente solo para UX; el backend manda. Mostrá el error del servidor junto al campo
-  cuando sea 400.
-- Botón submit deshabilitado mientras `saving`; cancelar limpia el formulario.
-- `dueDate` vacío → `null`, no `""`.
-- Después de crear: limpiar, enfocar el primer campo y anunciar con `role="status"`.
-
-## UI y estilos
-
-- Tokens en `:root` (color, radius, spacing, sombra). Dark mode opcional vía `prefers-color-scheme`.
-- Layout responsive con CSS grid; breakpoint principal 720px.
-- Estados obligatorios: **cargando** (skeleton o texto), **vacío** (con acción), **error** (con reintento).
-- Foco visible siempre (`:focus-visible`), targets ≥ 40px, contraste AA.
-- Textos de UI en español; identificadores en inglés. Sin emojis decorativos en labels.
-
-## Comandos y verificación
+## Verificación
 
 ```bash
 npm install
 npm run dev        # :5173 con proxy /api → :8080
-npm run typecheck  # tsc --noEmit
-npm run build      # tsc -b && vite build
-npm run preview    # servir dist
+npm run typecheck
+npm run build
 ```
 
-Antes de cerrar: `typecheck` + `build` verdes y prueba manual de crear/editar/borrar con el backend
-levantado. Si no hay backend, al menos el build y el estado de error deben verse bien.
-
-## Pitfalls
-
-1. `fetch` no rechaza en 4xx/5xx: siempre `if (!res.ok)`.
-2. `res.json()` en 204 lanza; contemplá `DELETE`.
-3. Proxy de Vite solo aplica en dev; en producción Nginx enruta `/api` (ver `frontend/nginx.conf`).
-4. `strict` + `noUncheckedIndexedAccess`: evitá `items[0]!`; usá `at(0)` con guard.
-5. Fechas `yyyy-MM-dd` se corren de día si usás `new Date("2026-10-18")` y mostrás UTC; formateá con
-   `Intl.DateTimeFormat("es", { timeZone: "UTC" })` o parseá como local.
-6. No metas `dangerouslySetInnerHTML`; la descripción es texto plano.
+Antes de cerrar: build verde y recorrido manual/E2E de registrar → historial → borrar → progreso →
+comunidad. Probá 390px sin overflow horizontal.
 
 ## Definition of done
 
-- [ ] Tipos espejo del contrato; sin `any` ni casts innecesarios.
-- [ ] Estados de carga/vacío/error implementados y probados visualmente.
-- [ ] Formulario usable solo con teclado y con lector de pantalla.
-- [ ] `npm run typecheck && npm run build` verdes.
+- [ ] Tipos espejo, sin `any`.
+- [ ] Estados de carga/vacío/error y mensajes del servidor.
+- [ ] Formulario usable con teclado y lector de pantalla.
+- [ ] `npm run typecheck && npm run build` verdes; mobile revisado.

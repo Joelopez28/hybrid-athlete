@@ -1,19 +1,19 @@
-name: taskflow
+name: ruky
 
 services:
   db:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-taskflow}
-      POSTGRES_USER: ${POSTGRES_USER:-taskflow}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-taskflow}
+      POSTGRES_DB: ${POSTGRES_DB:-ruky}
+      POSTGRES_USER: ${POSTGRES_USER:-ruky}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-ruky}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
-      - taskflow-db:/var/lib/postgresql/data
+      - ruky-db:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-taskflow} -d ${POSTGRES_DB:-taskflow}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ruky} -d ${POSTGRES_DB:-ruky}"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -23,7 +23,7 @@ services:
     image: postgrest/postgrest:v12.2.3
     environment:
       # Dev-only credentials: keep db/init/001_roles.sql in sync if you change them.
-      PGRST_DB_URI: postgres://authenticator:authenticator-dev-password@db:5432/${POSTGRES_DB:-taskflow}
+      PGRST_DB_URI: postgres://authenticator:authenticator-dev-password@db:5432/${POSTGRES_DB:-ruky}
       PGRST_DB_SCHEMAS: api
       PGRST_DB_ANON_ROLE: web_anon
       PGRST_SERVER_PORT: 3000
@@ -37,4 +37,4 @@ services:
         condition: service_healthy
 
 volumes:
-  taskflow-db:
+  ruky-db:

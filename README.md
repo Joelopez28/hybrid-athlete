@@ -1,20 +1,37 @@
-# TaskFlow
+# RUKY
 
-Starter full-stack listo para correr: **Spring Boot 3 (BFF) + React 19 + TypeScript + PostgREST + PostgreSQL**, con un **equipo de agentes de programación** para DeepSeek Harness.
+Entrenamiento y competencia para **CrossFit, powerlifting, calistenia y HYROX**: registrá tus sesiones,
+mirá tu progreso, competí por ranking y entrá a la división **Ruky Elite**.
 
-![TaskFlow en escritorio](docs/captura-desktop.png)
+![Dashboard de RUKY](docs/captura-desktop.png)
 
-<sub>También verificada en móvil: [captura responsive](docs/captura-mobile.png).</sub>
+<sub>Vista móvil: [captura responsive](docs/captura-mobile.png).</sub>
 
-## Qué incluye
+## Qué está implementado
 
-- **Backend Spring Boot 3.3 / Java 17**: contrato `/api` estable, validación, manejo uniforme de errores, CORS, Actuator y tests (23 verdes).
-- **PostgREST 12**: CRUD declarativo sobre PostgreSQL, aislado en la red privada; el navegador nunca lo toca.
-- **Frontend React 19 + TypeScript + Vite 6**: cliente tipado, hook de datos con `AbortController`, filtros, paginación, formulario accesible, estados de carga/vacío/error y tema claro/oscuro.
-- **PostgreSQL 16**: esquema `api`, roles `authenticator`/`web_anon`, trigger de `updated_at`, seed de 4 tareas.
-- **Docker Compose** para desarrollo (`compose.yaml`) y para el stack completo (`compose.full.yaml`, Nginx incluido).
-- **Agentes**: 1 `AGENTS.md`, 6 skills y 5 briefs de subagentes en `.dsh/` (ver [Agentes](#agentes-de-programación)).
-- **Verificación real**: `make test`, `make smoke` y un recorrido E2E de la UI (crear → filtrar → cambiar estado → borrar) ejecutado durante el desarrollo.
+- **Dashboard semanal**: sesiones, volumen, PRs, minutos, chart de 8 semanas, sesiones recientes y
+  mini ranking de la comunidad.
+- **Registro de sesiones**: fuerza, WOD, simulación HYROX, skills, cardio y mixto; series con
+  ejercicio, reps, kg, segundos (holds) y RPE. Fecha, duración, notas y división.
+- **Historial**: filtros por disciplina, series desplegables, borrado con confirmación.
+- **Progreso**: PRs por ejercicio (peso, reps o segundos), volumen semanal y mezcla de disciplinas.
+- **Comunidad**: ranking por volumen, sesiones o minutos; períodos de 4/8/12 semanas; filtro
+  **Ruky Elite**.
+- **Backend Spring Boot 3.3 / Java 17**: contrato `/api`, validación, errores uniformes, cálculos de
+  volumen/PR/ranking, 23 tests.
+- **PostgREST + PostgreSQL 16**: 4 tablas, catálogo de 34 ejercicios, RPC atómica para sesiones +
+  series, datos demo de 4 atletas.
+- **Docker Compose**: desarrollo y stack completo con Nginx (`:8081`).
+- **Agentes DSH**: 6 skills + 5 briefs para seguir construyendo sin romper el dominio.
+
+## Qué falta (explícito)
+
+- **Auth real y RLS**: hoy hay un atleta demo (`ruky`); no hay login ni aislamiento por usuario.
+- **Competencias Strong Fit**: la UI muestra el plan, pero el motor de eventos/puntajes no está
+  implementado.
+- **Criterios Ruky Elite**: la división existe (`athletes.tier`); los estándares son de referencia,
+  no un sistema de clasificación.
+- Migraciones formales (hoy scripts de init), CI y E2E versionado.
 
 ## Arquitectura
 
@@ -23,269 +40,244 @@ Starter full-stack listo para correr: **Spring Boot 3 (BFF) + React 19 + TypeScr
 │ React 19 + TS   │ ──────────────▶ │ Spring Boot BFF  │ ──────────────▶ │ PostgREST  │ ───▶ │ PostgreSQL │
 │ :5173 / :8081   │                 │ :8080            │                 │ :3000      │      │ :5432      │
 └─────────────────┘                 └──────────────────┘                 └────────────┘      └────────────┘
-        UI                          contrato, reglas                    REST declarativo      fuente de verdad
+        UI                          contrato + stats                    REST declarativo      fuente de verdad
 ```
 
 - El navegador **solo** conoce `/api`; PostgREST queda en la red privada.
-- Spring aporta validación, DTOs estables, errores y el lugar donde crecerán auth y reglas.
-- PostgREST evita reescribir CRUD y filtros en Java.
-- Las decisiones y sus consecuencias están en [`docs/decisiones.md`](docs/decisiones.md).
+- Spring valida, calcula volumen/PRs/ranking y orquesta la creación de sesiones.
+- La creación de sesión + series usa `api.create_session(jsonb)` vía RPC para ser atómica.
+- Decisiones y consecuencias: [`docs/decisiones.md`](docs/decisiones.md).
 
 ## Requisitos
 
 | Herramienta | Versión | Nota |
 |---|---|---|
-| Docker + Compose | reciente | para PostgreSQL y PostgREST |
-| Java | 17+ | el proyecto compila con 17 |
+| Docker + Compose | reciente | Postgres y PostgREST |
+| Java | 17+ | backend |
 | Node.js | 20+ | Vite 6 |
-| Maven | — | **no hace falta**: incluimos `backend/mvnw` |
+| Maven | — | incluimos `backend/mvnw` |
 
 ## Arranque rápido (3 terminales)
 
 ```bash
-# 0) Opcional: variables locales
-cp .env.example .env
+cp .env.example .env      # opcional
 
-# 1) Base de datos + PostgREST (espera a que estén healthy)
-make up
+make up                   # Postgres + PostgREST (espera healthy)
+make install              # deps frontend (una vez)
 
-# 2) Dependencias del frontend (una sola vez)
-make install
+# Terminal A
+make backend              # http://localhost:8080
 
-# 3) Terminal A — backend en http://localhost:8080
-make backend
-
-# 4) Terminal B — frontend en http://localhost:5173
-make frontend
+# Terminal B
+make frontend             # http://localhost:5173
 ```
 
-Abrí **http://localhost:5173**. La primera vez, `./mvnw` descarga Maven 3.9.9 y las dependencias.
+Abrí **http://localhost:5173**. La primera vez `./mvnw` descarga Maven y dependencias.
 
-Verificación rápida:
+Verificación:
 
 ```bash
 make test     # 23 tests backend + typecheck/build frontend
-make smoke    # crea, lista, actualiza, borra y restaura el total vía API real
-```
-
-Salida esperada del smoke:
-
-```text
-OK   PostgREST responde
-OK   Backend UP
-OK   Total inicial: 4
-OK   Tarea creada: 8f2c…
-OK   La tarea aparece en el listado
-OK   Estado actualizado a DONE
-OK   Tarea eliminada (204)
-OK   La tarea ya no está en el listado
-OK   Total restaurado: 4
+make smoke    # crea una sesión de 500 kg, la lista y la borra
 ```
 
 ### Todo en Docker
 
 ```bash
-make full-up     # construye backend y frontend, publica http://localhost:8081
+make full-up      # http://localhost:8081
 make full-down
 ```
 
-Nginx sirve la SPA y hace de proxy de `/api` hacia el backend; PostgREST y PostgreSQL no se publican.
+Nginx sirve la SPA y hace proxy de `/api`; Postgres y PostgREST no se publican.
+
+## Cómo se usa
+
+1. **Hoy**: resumen semanal, evolución y accesos rápidos.
+2. **Registrar**: elegí disciplina (CrossFit, Powerlifting, Calistenia, HYROX). El tipo de sesión y
+   el catálogo de ejercicios se adaptan.
+   - Fuerza/Skills: agregá series con reps, kg o segundos.
+   - WOD: formato (AMRAP, EMOM, For Time, Intervalos), score y división.
+   - HYROX: tiempo total y división (Open, Pro, Dobles, Relay).
+3. **Historial**: filtrá por disciplina y desplegá las series de cada sesión.
+4. **Progreso**: PRs, volumen semanal y distribución de la carga.
+5. **Comunidad**: cambiá métrica, período y división. **Ruky Elite** filtra solo atletas `ELITE`.
+
+### Datos demo
+
+- Atleta actual: `ruky` (Ruky Elite, 82 kg, CL), configurable con `DEMO_ATHLETE_HANDLE`.
+- Comunidad: `vale` (Elite), `nacho` (Open), `sofi` (Open).
+- 10 sesiones de Ruky distribuidas en 6 semanas (fuerza, Fran, Grace, HYROX Open, skills).
+- 34 ejercicios de las cuatro disciplinas.
+
+Para volver a empezar: `make db-reset` (destructivo, borra el volumen).
 
 ## API
 
-Base: `http://localhost:8080/api` · JSON camelCase · fechas ISO‑8601.
+Base: `http://localhost:8080/api`.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/api/tasks?status=TODO&page=0&size=20` | Listado paginado (`status` opcional, `size` ≤ 100) |
-| `GET` | `/api/tasks/{id}` | Detalle o `404` |
-| `POST` | `/api/tasks` | Crea (`201` + `Location`) |
-| `PATCH` | `/api/tasks/{id}` | Actualiza solo los campos enviados |
-| `DELETE` | `/api/tasks/{id}` | Borra (`204`) o `404` |
+| `GET` | `/api/me` | Atleta demo |
+| `GET` | `/api/athletes` | Comunidad |
+| `GET` | `/api/exercises?discipline=POWERLIFTING` | Catálogo |
+| `GET` | `/api/sessions?size=20&discipline=CROSSFIT` | Historial con series |
+| `GET` | `/api/sessions/{id}` | Detalle |
+| `POST` | `/api/sessions` | Crea sesión + series |
+| `DELETE` | `/api/sessions/{id}` | Borra |
+| `GET` | `/api/stats?weeks=8` | Totales, semanal, PRs, disciplinas |
+| `GET` | `/api/leaderboard?weeks=4&metric=VOLUME&tier=ELITE` | Ranking |
 
 ```bash
-# Listar
-curl -s 'http://localhost:8080/api/tasks?size=2' | python3 -m json.tool
+# Historial
+curl -s 'http://localhost:8080/api/sessions?size=2' | python3 -m json.tool
 
-# Crear
-curl -s -X POST http://localhost:8080/api/tasks \
+# Crear una sesión de fuerza
+curl -s -X POST http://localhost:8080/api/sessions \
   -H 'Content-Type: application/json' \
-  -d '{"title":"Preparar demo","priority":"HIGH","dueDate":"2030-12-31"}'
+  -d '{
+    "performedOn": "2026-10-20",
+    "discipline": "POWERLIFTING",
+    "sessionType": "STRENGTH",
+    "title": "Fuerza · sentadilla",
+    "durationMin": 60,
+    "rpe": 8,
+    "entries": [
+      {"movement": "Back Squat", "setIndex": 1, "reps": 5, "weightKg": 100}
+    ]
+  }'
 
-# Cambiar estado
-curl -s -X PATCH http://localhost:8080/api/tasks/<id> \
-  -H 'Content-Type: application/json' -d '{"status":"DONE"}'
-
-# Borrar
-curl -s -o /dev/null -w '%{http_code}\n' -X DELETE http://localhost:8080/api/tasks/<id>
+# Stats y ranking
+curl -s 'http://localhost:8080/api/stats?weeks=8'
+curl -s 'http://localhost:8080/api/leaderboard?weeks=4&metric=VOLUME&tier=ELITE'
 ```
 
-Forma de error uniforme (sin stacktraces):
+Errores uniformes:
 
 ```json
 {
-  "timestamp": "2026-10-18T21:47:40.332-03:00",
+  "timestamp": "2026-10-20T01:20:47-03:00",
   "status": 400,
   "error": "Bad Request",
-  "message": "title: El título es obligatorio",
-  "path": "/api/tasks"
+  "message": "Un WOD necesita formato y resultado",
+  "path": "/api/sessions"
 }
 ```
 
-Detalle de campos, defaults y contrato: [`backend/src/main/java/com/example/taskflow/web`](backend/src/main/java/com/example/taskflow/web) y [`frontend/src/api/types.ts`](frontend/src/api/types.ts).
-
 ## Datos y PostgREST
 
-- Esquema expuesto: `api` (nunca `public`).
-- Tabla `api.tasks` con constraints, índice `(status, created_at desc)` y trigger `updated_at`.
-- Roles de desarrollo: `authenticator` (login) y `web_anon` (anon). **Sin RLS todavía** (ver [Seguridad](#seguridad)).
-- Los scripts de [`db/init/`](db/init) se ejecutan **solo al crear el volumen**.
+- Esquema `api`: `athletes`, `exercises`, `training_sessions`, `session_entries`.
+- **Volumen** = Σ `reps × weight_kg`; las series de peso corporal no suman.
+- **PRs** solo de sesiones `STRENGTH` y `SKILL`; holds usan segundos.
+- **Ranking** por volumen/sesiones/minutos, agregado en backend sobre las sesiones del período.
+- Roles de desarrollo: `authenticator` y `web_anon`. **Sin RLS todavía**.
 
 ```bash
-# Consulta directa para depurar (solo desarrollo)
-curl -s 'http://localhost:3000/tasks?select=id,title,status&status=eq.TODO&limit=3' | python3 -m json.tool
+# Consulta directa (debug)
+curl -s 'http://localhost:3000/training_sessions?select=*,session_entries(*)&limit=1' | python3 -m json.tool
 
-# Consola SQL
-docker compose exec db psql -U taskflow -d taskflow -c 'select id, title, status from api.tasks;'
-
-# Recrear la base desde cero (destructivo)
-make db-reset
+# SQL
+docker compose exec db psql -U ruky -d ruky -c 'select count(*) from api.training_sessions;'
 ```
 
-Sintaxis PostgREST, roles y RLS: skill `datos-postgrest`.
+## Agentes de programación (DSH)
 
-## Agentes de programación
+- [`AGENTS.md`](AGENTS.md): reglas, contrato, cálculos, quality gates y deuda.
+- [`.dsh/skills/`](.dsh/skills): 6 skills que DSH descubre automáticamente.
+- [`.dsh/agents/`](.dsh/agents): 5 briefs para `subagent`, con alcance y reporte.
 
-Este repo está preparado para que **DSH** (DeepSeek Harness) trabaje con contexto y roles, no improvisando.
-
-- [`AGENTS.md`](AGENTS.md): reglas del proyecto, fronteras, contrato, quality gates y deuda conocida.
-- [`.dsh/skills/`](.dsh/skills): 6 skills que DSH descubre automáticamente al abrir la carpeta raíz.
-- [`.dsh/agents/`](.dsh/agents): 5 briefs listos para `subagent`, con alcance y reporte obligatorio.
-
-### Skills
-
-| Skill | Usala cuando… |
+| Skill | Cuándo |
 |---|---|
-| `arquitectura-fullstack` | agregás una entidad/recurso, cambiás el contrato o discutís una frontera |
-| `backend-spring-boot` | tocás endpoints, validación, `RestClient`, errores o tests Java |
-| `frontend-react-ts` | tocás componentes, hooks, formulario, estilos o el cliente API |
-| `datos-postgrest` | cambiás esquema, roles, RLS, índices o consultas PostgREST |
-| `verificacion-fullstack` | necesitás probar, diagnosticar por capa o preparar un PR |
-| `revision-codigo` | querés un code review priorizado antes de cerrar |
+| `arquitectura-fullstack` | diseñar una funcionalidad o cambiar el contrato |
+| `backend-spring-boot` | endpoints, RPC, stats, tests Java |
+| `frontend-react-ts` | páginas, formulario de sesión, estilos |
+| `datos-postgrest` | esquema, RPC, roles, consultas |
+| `verificacion-fullstack` | smoke, E2E, diagnóstico por capa |
+| `revision-codigo` | review P0/P1/P2 antes de cerrar |
 
-En DSH podés invocarlas por nombre (por ejemplo: *“cargá `backend-spring-boot` y agregá PATCH de prioridad”*)
-o dejar que el agente las elija por la tarea. También son archivos normales: editalas para adaptarlas a tu equipo.
-
-> DSH detecta `.dsh/skills` porque el repo tiene `.git` en la raíz. Si copiás el proyecto sin git,
-> abrí DSH en esta misma carpeta (el cwd actúa como raíz) o volvé a `git init`.
->
-> Si ya tenías una sesión de DSH abierta **antes** de crear el repo, el catálogo de skills puede estar
-> cacheado. Abrí una sesión nueva o ejecutá `touch .dsh/skills/*/SKILL.md` para forzar el refresco.
-
-### Subagentes
-
-Cada brief es autocontenido: se pasa como prompt y el subagente lee `AGENTS.md` + su skill.
-
-| Brief | Área | Puede editar |
-|---|---|---|
-| [`data-dev.md`](.dsh/agents/data-dev.md) | esquema, roles, compose, Docker | `db/`, `compose*.yaml`, Dockerfiles |
-| [`backend-dev.md`](.dsh/agents/backend-dev.md) | endpoints, validación, tests | `backend/` |
-| [`frontend-dev.md`](.dsh/agents/frontend-dev.md) | UI, hooks, tipos, estilos | `frontend/` |
-| [`reviewer.md`](.dsh/agents/reviewer.md) | revisión P0/P1/P2 | nada (solo reporta) |
-| [`integrator.md`](.dsh/agents/integrator.md) | builds, smoke, diagnóstico | `scripts/`, fixes de integración |
-
-Ejemplo de delegación (desde una sesión de DSH en esta carpeta):
+Ejemplo de delegación:
 
 ```text
 subagent(
-  description: "Backend: endpoint de comentarios",
+  description: "Backend: PRs por tiempo",
   prompt: "Leé .dsh/agents/backend-dev.md y .dsh/skills/backend-spring-boot/SKILL.md.
-           Tarea: agregar comentarios por tarea (tabla api.comments ya existe).
-           Contrato: GET/POST /api/tasks/{id}/comments, error shape actual.
-           No toques frontend. Reportá tests y riesgos."
+           Tarea: agregar el mejor tiempo por ejercicio a /api/stats, con tests.
+           No toques frontend. Reportá comandos y resultado."
 )
 ```
 
-Flujo recomendado para una feature:
+Flujo recomendado: `arquitectura-fullstack` → `data-dev` → `backend-dev` → `frontend-dev` →
+`integrator` → `reviewer`.
 
-1. `arquitectura-fullstack` → fijar contrato.
-2. `data-dev` → tabla/grants; `backend-dev` → endpoint y tests; `frontend-dev` → UI contra el contrato.
-3. `integrator` → `make test` + `make smoke`.
-4. `reviewer` → bloqueantes; el dueño aplica.
+> DSH detecta `.dsh/skills` porque el repo tiene `.git` en la raíz. Si ya tenías la sesión abierta
+> antes de crear el repo, abrí una sesión nueva o ejecutá `touch .dsh/skills/*/SKILL.md`.
 
 ## Estructura
 
 ```text
 .
-├── AGENTS.md                 Reglas y quality gates
-├── Makefile                  Atajos de desarrollo y verificación
-├── compose.yaml              Postgres + PostgREST (dev)
-├── compose.full.yaml         Stack completo (Nginx + backend + datos)
-├── db/init/                  Roles, esquema, seed (numerados)
-├── backend/                  Spring Boot 3.3 · Java 17
-│   ├── mvnw / mvnw.cmd       Maven Wrapper
-│   └── src/main/java/com/example/taskflow/
-│       ├── config/           RestClient, CORS, propiedades
-│       ├── domain/           Task, enums
-│       ├── postgrest/        Cliente + mapeo snake_case
-│       ├── service/          Reglas y normalización
-│       ├── web/              Controller, DTOs, paginación
-│       └── error/            ApiError + handler global
-├── frontend/                 React 19 + TS + Vite
-│   ├── src/api/              Tipos y cliente fetch
-│   ├── src/hooks/            useTasks
-│   └── src/components/       Form, lista, filtros, paginación
-├── scripts/                  smoke.sh, dev.sh
-├── docs/                     Capturas y decisiones (ADR)
-└── .dsh/                     Skills y briefs de agentes
+├── AGENTS.md
+├── Makefile
+├── compose.yaml / compose.full.yaml
+├── db/init/
+│   ├── 001_roles.sql
+│   ├── 002_schema.sql
+│   ├── 003_exercises.sql
+│   ├── 004_demo_data.sql
+│   └── 005_functions.sql
+├── backend/
+│   ├── mvnw
+│   └── src/main/java/com/ruky/training/
+│       ├── config/      RestClient + mapper PostgREST
+│       ├── domain/      Athlete, Exercise, TrainingSession, SessionEntry
+│       ├── postgrest/   Repositorios y RPC
+│       ├── service/     Sesiones, stats, leaderboard
+│       ├── web/         Controllers y DTOs
+│       └── error/       ApiError + handler
+├── frontend/
+│   ├── src/api/         Tipos y cliente
+│   ├── src/hooks/       useRukyData, useLeaderboard
+│   ├── src/components/  Header, SessionForm, SessionCard, chart
+│   └── src/pages/       Dashboard, History, Progress, Community
+├── scripts/             smoke.sh, dev.sh
+├── docs/                Capturas y ADR
+└── .dsh/                Skills y briefs
 ```
-
-## Personalizar el dominio
-
-Para pasar de “tareas” a tu entidad (facturas, tickets, pedidos):
-
-1. **Datos**: nuevo `db/init/004_*.sql` con tabla, constraints, índice y grants. Probá con `curl` directo.
-2. **Contrato**: definí JSON y códigos; actualizá `web/` (DTOs + controller) y `frontend/src/api/types.ts`.
-3. **Backend**: repositorio PostgREST + servicio + tests.
-4. **Frontend**: hook, lista y formulario; mantené estados de carga/vacío/error.
-5. **Verificación**: `make test && make smoke`; agregá el recurso al README.
-6. **Limpieza**: borrá el módulo `tasks` cuando ya no lo uses.
 
 ## Seguridad
 
-> **Este starter es solo para desarrollo.** `web_anon` puede leer y escribir sin autenticación y no hay RLS.
+> **Demo local sin autenticación.** `web_anon` puede leer y escribir; todas las escrituras van al
+> atleta `ruky`. No lo expongas con datos reales.
 
-Antes de exponer datos reales:
+Antes de producción:
 
-- Proveedor de identidad + JWT firmado; PostgREST valida el token (`PGRST_JWT_SECRET` real).
-- Rol `app_user` y **RLS por dueño** (`owner_id` + `sub` del JWT), con tests de aislamiento.
-- Cambiar credenciales de `authenticator` (hoy están en `compose.yaml` y `db/init/001_roles.sql`).
-- PostgREST y PostgreSQL en red privada; solo el frontend/ALB público.
-- HTTPS, rate limiting, backups y observabilidad.
-- Revisar `docs/decisiones.md` (ADR-003) y el checklist de `revision-codigo`.
-
-## Troubleshooting
-
-| Problema | Causa / solución |
-|---|---|
-| `port is already allocated` | Liberá `5432`, `3000`, `8080` u `8081`, o cambiá el puerto en `.env` |
-| PostgREST 401/403 | Roles/grants no aplicados o volumen viejo → `make db-reset` |
-| Backend 502 | PostgREST no responde o `POSTGREST_URL` incorrecto → `docker compose logs postgrest` |
-| `Invalid HTTP method: PATCH` | Regresión del cliente: usá `JdkClientHttpRequestFactory` (ya configurado) |
-| CORS 403 en dev | Agregá tu origen a `CORS_ALLOWED_ORIGINS` (incluye `localhost` y `127.0.0.1`) |
-| `npm install` con `EPERM` en `_cacache` | Entorno restringido/sandbox: `npm install --cache /tmp/npm-cache` |
-| Cambios de esquema no aparecen | Los init scripts corren una vez → `make db-reset` o `NOTIFY pgrst, 'reload schema'` |
-| Las skills no aparecen en DSH | Catálogo cacheado por sesión → sesión nueva o `touch .dsh/skills/*/SKILL.md` |
-| `./mvnw` no descarga Maven | Sin red o proxy: instalá Maven 3.9 y usá `make backend MVN=mvn` |
+- Proveedor de identidad + JWT; reemplazar `CurrentAthleteService` por el principal autenticado.
+- `app_user` + RLS por dueño y tests de aislamiento.
+- Cambiar credenciales de `authenticator` y `PGRST_JWT_SECRET`.
+- Postgres/PostgREST en red privada, HTTPS, rate limiting, backups y observabilidad.
 
 ## Roadmap
 
-- Auth JWT + RLS y tests de aislamiento.
-- Migraciones Flyway/Liquibase (hoy init de Docker).
-- Playwright E2E + GitHub Actions (hoy verificación local con `make test`/`make smoke`).
-- OpenAPI generado y cliente TS derivado.
-- Observabilidad (trazas, métricas de negocio) y rate limiting.
+1. **Auth + RLS** (bloqueante para usuarios reales).
+2. **Competencias Strong Fit**: `competitions`, `events`, `registrations`, `results`, scoring por
+   posición y desempates.
+3. **Ruky Elite**: benchmarks oficiales y flujo de clasificación.
+4. **Progreso avanzado**: 1RM estimado, mejores tiempos, comparación por disciplina.
+5. Migraciones Flyway, CI y E2E Playwright versionado.
+
+## Troubleshooting
+
+| Problema | Solución |
+|---|---|
+| `port is already allocated` | Liberá `5432`, `3000`, `8080` u `8081` |
+| PostgREST 401/403 | Roles/grants no aplicados → `make db-reset` |
+| 502 al crear sesión | RPC sin `payload`, sin reload o PostgREST caído |
+| `PGRST204 session_entries` | No uses nested insert; la creación va por RPC |
+| PR muestra “0 reps” | Revisá `bestSeconds`/`bestReps` en `/api/stats` |
+| Cambios de esquema no aparecen | `make db-reset` |
+| CORS 403 | Agregá el origen a `CORS_ALLOWED_ORIGINS` |
+| `npm install` con `EPERM` en `_cacache` | `npm install --cache /tmp/npm-cache` |
+| Skills no aparecen | Sesión nueva o `touch .dsh/skills/*/SKILL.md` |
 
 ---
 
-Hecho para arrancar rápido y para que los agentes trabajen con las mismas reglas que el equipo.
+RUKY · entrená con intención, competí con datos.

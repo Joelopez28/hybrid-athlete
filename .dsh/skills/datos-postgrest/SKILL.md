@@ -1,109 +1,114 @@
 ---
 name: datos-postgrest
-description: Modelar PostgreSQL y exponerlo con PostgREST de forma segura. Esquema, roles, RLS, sintaxis de consultas y migraciones.
-whenToUse: Al crear tablas/índices/roles, escribir consultas PostgREST, depurar 401/403/PGRST116 o preparar RLS y auth.
+description: Modelar PostgreSQL y exponerlo con PostgREST para RUKY: atletas, ejercicios, sesiones, series, RPC de creación y roles.
+whenToUse: Al cambiar el esquema, el seed, la función create_session, roles/RLS o depurar consultas PostgREST.
 ---
 
-# Datos: PostgreSQL + PostgREST
+# Datos: PostgreSQL + PostgREST (RUKY)
 
-## Modelo del starter
+## Tablas (esquema `api`)
 
-Esquema `api`, tabla `api.tasks`. Todo cambio arranca en `db/init/` (numerado) y se prueba contra el
-contenedor real, no contra una idea.
-
-```sql
-create table if not exists api.tasks (
-  id          uuid primary key default gen_random_uuid(),
-  title       text not null check (length(btrim(title)) between 1 and 200),
-  description text check (length(description) <= 2000),
-  status      text not null default 'TODO' check (status in ('TODO','IN_PROGRESS','DONE')),
-  priority    text not null default 'MEDIUM' check (priority in ('LOW','MEDIUM','HIGH')),
-  due_date    date,
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
-);
+```text
+athletes ──< training_sessions ──< session_entries >── exercises
 ```
+
+- `athletes`: handle único, sexo, peso, `tier (OPEN|ELITE)`, disciplinas (`text[]`).
+- `exercises`: catálogo compartido, `discipline`, `category`, `unit`, `benchmark`.
+- `training_sessions`: atleta, fecha, disciplina, tipo, duración, RPE, resultado WOD/HYROX.
+- `session_entries`: sesión, ejercicio opcional, `movement` denormalizado, `set_index`, `reps`,
+  `weight_kg`, `seconds`, `rpe`.
 
 Convenciones:
-- snake_case en DB; el mapeo a camelCase ocurre en el BFF, no en SQL con alias raros.
-- `uuid` + `gen_random_uuid()`; no secuencias visibles.
-- `timestamptz` siempre; `date` para fechas sin hora.
-- Constraints en la base además de validación en Java (defensa en profundidad).
-- Índices solo para filtros/orden reales: `(status, created_at desc)`.
+- snake_case en DB; el mapper del BFF lo traduce a camelCase.
+- `uuid` + `gen_random_uuid()`; `timestamptz`; `timestamptz` trigger para `updated_at`.
+- Constraints en la base **además** de validación Java.
+- Índices: `(athlete_id, performed_on desc)`, `(session_id, set_index)`, `(discipline, name)`.
 
-## Roles mínimos
+## Crear sesión con series: RPC
 
-```sql
-create role authenticator noinherit login password '...';
-create role web_anon nologin;
-grant web_anon to authenticator;              -- permite SET ROLE
-grant usage on schema api to web_anon;
-grant select, insert, update, delete on api.tasks to web_anon;
+PostgREST 12 de este deployment no acepta nested inserts. Se usa:
+
+```http
+POST /rpc/create_session
+{"payload": {
+  "athlete_id": "...", "performed_on": "2026-10-20",
+  "discipline": "POWERLIFTING", "session_type": "STRENGTH",
+  "title": "Fuerza", "entries": [
+    {"exercise_id": "...", "movement": "Back Squat", "set_index": 1,
+     "reps": 5, "weight_kg": 100}
+  ]
+}}
 ```
 
-- PostgREST conecta como `authenticator` y hace `SET ROLE web_anon` (`PGRST_DB_ANON_ROLE`).
-- `web_anon` es **solo desarrollo**. Producción: `app_user` + JWT (`role` claim) y RLS.
-- Nunca des `superuser` a `authenticator`; nunca expongas `public`.
+La función inserta sesión + series en una transacción y devuelve el `uuid`. Reglas:
+- `nullif(...)` para campos opcionales; `coalesce(...,1)` para `set_index`.
+- `grant execute` a `web_anon` (dev).
+- Tras crear la función: `NOTIFY pgrst, 'reload schema';` (ya está al final de `005_functions.sql`).
+- PostgREST necesita el wrapper `payload`; documentado en el backend.
 
-## RLS (cuando llegue auth)
-
-```sql
-alter table api.tasks enable row level security;
-create policy tasks_owner on api.tasks
-  using (owner_id = (current_setting('request.jwt.claims', true)::jsonb ->> 'sub')::uuid)
-  with check (owner_id = (current_setting('request.jwt.claims', true)::jsonb ->> 'sub')::uuid);
-```
-
-- El rol de la API **no** debe ser dueño de la tabla (el owner salta RLS salvo `FORCE`).
-- Probá con `set role app_user; set request.jwt.claims = '{"sub":"..."}';`.
-- PostgREST cachea el esquema: tras DDL, `NOTIFY pgrst, 'reload schema';` (o `PGRST_DB_SCHEMA` fresh).
-
-## Sintaxis PostgREST que vas a usar
+## Consultas que usa el BFF
 
 | Necesidad | Query |
 |---|---|
-| Filtrar igualdad | `/tasks?status=eq.TODO` |
-| Múltiples valores | `/tasks?status=in.(TODO,IN_PROGRESS)` |
-| Texto | `/tasks?title=ilike.*deploy*` |
-| Nulos | `/tasks?due_date=is.null` |
-| Orden + paginación | `/tasks?order=created_at.desc&limit=20&offset=0` |
-| Total exacto | Header `Prefer: count=exact` → `Content-Range: 0-19/42` |
-| Insertar y devolver | `POST /tasks` + `Prefer: return=representation` |
-| Actualizar | `PATCH /tasks?id=eq.{uuid}` + `return=representation` |
-| Borrar | `DELETE /tasks?id=eq.{uuid}` → 204 |
-| Upsert | `POST /tasks?on_conflict=id` + `Prefer: resolution=merge-duplicates` |
-| Columnas | `select=id,title,status` |
+| Sesiones con series | `/training_sessions?select=*,session_entries(*)&athlete_id=eq.{id}` |
+| Orden | `order=performed_on.desc,created_at.desc` |
+| Conteo exacto | `Prefer: count=exact` → `Content-Range: 0-19/42` |
+| Filtros | `discipline=eq.CROSSFIT`, `session_type=eq.WOD` |
+| Stats | `performed_on=gte.2026-09-01&limit=500` |
+| Leaderboard | `performed_on=gte.…&limit=2000` (todas las sesiones) |
+| Catálogo | `/exercises?order=discipline.asc,name.asc` |
 
-Codificá espacios/operadores en el BFF con `UriBuilder`; no concatenes strings crudos del usuario.
+Las agregaciones (volumen, PRs, ranking) se hacen en Java. Si el volumen crece, moverlas a vistas
+SQL y consultarlas por PostgREST.
 
-## Migraciones y seed
+## Roles y RLS
 
-- `db/init/001_roles.sql`, `002_schema.sql`, `003_seed.sql` corren **solo** al crear el volumen.
-- Un cambio nuevo → `004_descripcion.sql`; nunca edites uno ya desplegado.
-- `make db-reset` destruye el volumen y re-siembra: usalo en desarrollo, jamás en producción.
-- Seed idempotente (`on conflict do nothing`) para que el reset no falle.
-- En producción: Flyway/Liquibase o pipeline de migraciones; el init de Docker no es suficiente.
+- `authenticator` (login, `NOINHERIT`), `web_anon` (dev), `grant web_anon to authenticator`.
+- Producción: `app_user` + JWT + RLS por `owner_id`/`sub`; `web_anon` desaparece.
+- El owner de la tabla no debe saltarse RLS en producción (usar `FORCE ROW LEVEL SECURITY`).
+
+## Seed y reset
+
+- `002_schema.sql`, `003_exercises.sql`, `004_demo_data.sql`, `005_functions.sql` corren **solo** al
+  crear el volumen.
+- El seed usa `current_date` para que el dashboard tenga actividad de la semana actual.
+- `make db-reset` destruye el volumen; nunca en producción.
+- Un cambio nuevo va en `006_*.sql`; no edites un script ya aplicado.
+
+## Próxima fase: competencias
+
+Cuando se implemente Strong Fit, agregar:
+
+```text
+competitions (id, name, starts_on, ends_on, status)
+competition_events (id, competition_id, name, scoring, order)
+registrations (competition_id, athlete_id, division, status)
+event_results (event_id, athlete_id, raw_score, points, validated)
+```
+
+El puntaje por posición y los desempates van en backend/SQL, no en la UI. No mezclar con
+`LeaderboardService`.
 
 ## Depuración
 
 ```bash
-docker compose logs -f postgrest           # errores de conexión/rol
-curl -i 'http://localhost:3000/tasks?limit=1'
-docker compose exec db psql -U taskflow -d taskflow -c '\d+ api.tasks'
-docker compose exec db psql -U taskflow -d taskflow -c 'select * from api.tasks;'
+docker compose logs -f postgrest
+docker compose exec db psql -U ruky -d ruky -c '\dt api.*'
+docker compose exec db psql -U ruky -d ruky -c 'select * from api.training_sessions limit 3;'
+curl -s 'http://localhost:3000/training_sessions?select=*,session_entries(*)&limit=1'
 ```
 
-| Síntoma | Causa probable |
+| Síntoma | Causa |
 |---|---|
-| 401 `role "web_anon" does not exist` | init no corrió / volumen viejo |
-| 403 `permission denied for table` | falta GRANT o RLS sin policy |
-| `PGRST116` | `.single()` implicito: el Accept pide objeto y hay 0/muchas filas |
-| 404 en `/tasks` | tabla fuera del esquema expuesto (`PGRST_DB_SCHEMAS`) |
-| columnas nuevas no aparecen | caché de esquema: `NOTIFY pgrst, 'reload schema'` |
+| `PGRST204 Could not find 'session_entries' column` | intento de nested insert; usá la RPC |
+| `PGRST202 function does not exist` | falta reload o body sin `payload` |
+| 401/403 | roles/grants o volumen viejo |
+| columnas nuevas no aparecen | `NOTIFY pgrst, 'reload schema'` |
+| fechas corridas | `timestamptz` vs `date`; respetá el tipo de columna |
 
 ## Checklist
 
-- [ ] DDL nuevo numerado, idempotente y probado desde volumen limpio.
-- [ ] Grants mínimos; sin `web_anon` en producción.
-- [ ] Índices para los filtros del endpoint real.
-- [ ] `curl` directo documentado para cada endpoint nuevo.
+- [ ] DDL nuevo numerado y probado desde volumen limpio.
+- [ ] Grants mínimos; RLS antes de producción.
+- [ ] RPC/grant/reload actualizados si cambia la firma.
+- [ ] `curl` directo documentado para la query nueva.

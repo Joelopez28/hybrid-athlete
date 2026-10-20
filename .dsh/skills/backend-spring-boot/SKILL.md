@@ -1,135 +1,105 @@
 ---
 name: backend-spring-boot
-description: Implementar y probar el BFF Spring Boot 3 (Java 17) que consume PostgREST. DTOs, validación, RestClient, errores y tests.
-whenToUse: Al crear o modificar endpoints /api, clientes PostgREST, validaciones, manejo de errores o tests del backend.
+description: Implementar y probar el BFF Spring Boot de RUKY (Java 17): endpoints, RPC atómica, estadísticas, PRs y ranking.
+whenToUse: Al tocar controladores, servicios, repositorios PostgREST, cálculos de progreso o tests del backend.
 ---
 
-# Backend Spring Boot (BFF)
+# Backend Spring Boot (RUKY)
 
-## Mapa de paquetes
+## Paquetes (`com.ruky.training`)
 
 ```text
-com.example.taskflow
-├── TaskFlowApplication.java
-├── config/        PostgrestProperties, RestClientConfig, WebConfig (CORS)
-├── domain/        Task, TaskStatus, TaskPriority (records/enums, camelCase)
-├── postgrest/     PostgrestTaskRepository, PostgrestException, mapeo snake_case
-├── service/       TaskService (reglas de negocio)
-├── web/           TaskController, DTOs de request/response
-└── error/         ApiError, GlobalExceptionHandler, TaskNotFoundException
+config/      RestClient (mapper snake_case + JDK HttpClient), CORS, Clock
+domain/      Athlete, Exercise, TrainingSession, SessionEntry, enums
+postgrest/   Repositorios, SessionWrite/EntryWrite, SessionPage
+service/     SessionService, StatsService, LeaderboardService, CurrentAthleteService
+web/         Controllers, DTOs de request/response, PageResponse
+error/       ApiError, GlobalExceptionHandler, ResourceNotFoundException
 ```
 
-Regla: **`web` no conoce `postgrest`**; `service` es la única capa que puede combinar repositorios.
-El repositorio es el único lugar con URLs y headers de PostgREST.
+`web` no conoce `postgrest`; `service` orquesta; el repositorio es el único que sabe URLs/headers.
 
-## RestClient (Spring 6.1, sin WebFlux)
+## Dos clientes distintos
+
+1. **API pública**: Jackson camelCase (config global de Spring).
+2. **PostgREST**: un `ObjectMapper` con `SNAKE_CASE` y `NON_NULL` inyectado en el `RestClient`. Por eso
+   los records de transporte usan camelCase y PostgREST ve `performed_on`, `weight_kg`, etc.
+
+No agregues anotaciones `@JsonProperty` sueltas: el naming ya está resuelto en `RestClientConfig`.
+
+## Crear una sesión (flujo crítico)
+
+PostgREST 12 **no** acepta nested inserts en este deployment. La sesión y sus series se crean con la
+función `api.create_session(payload jsonb)`:
 
 ```java
-@Configuration
-class RestClientConfig {
-  @Bean
-  RestClient postgrestRestClient(PostgrestProperties props) {
-    var httpClient = HttpClient.newBuilder().connectTimeout(props.connectTimeout()).build();
-    var factory = new JdkClientHttpRequestFactory(httpClient); // PATCH-capable
-    factory.setReadTimeout(props.readTimeout());
-    return RestClient.builder()
-        .baseUrl(props.baseUrl())
-        .requestFactory(factory)
-        .defaultHeader(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON_VALUE)
-        .build();
-  }
-}
+UUID id = client.post()
+    .uri("/rpc/create_session")
+    .body(Map.of("payload", write))
+    .retrieve()
+    .body(UUID.class);
+return findById(id).orElseThrow(...);
 ```
 
-No uses `SimpleClientHttpRequestFactory`: sobre `HttpURLConnection` **no puede enviar PATCH**
-(`Invalid HTTP method: PATCH` → 502). Ese bug ya lo pagamos; el smoke lo detecta.
+- El body de RPC va envuelto en `{"payload": {...}}`; sin el wrapper PostgREST busca una función sin
+  argumentos y devuelve 404.
+- `SessionWrite.entries` se serializa como `entries` (la función lo espera así).
+- Si cambiás la firma de la función, actualizá `005_functions.sql`, `SessionWrite` y los tests.
 
-Config por entorno (`application.yml`): `app.postgrest.base-url: ${POSTGREST_URL:http://localhost:3000}`.
-Validá la URL al arrancar (`@Validated` + `@NotBlank`); nunca hardcodees el host.
+## Reglas de negocio (no las dupliques en React)
 
-## Patrón de repositorio PostgREST
+- `STRENGTH`/`SKILL` exigen al menos una serie con reps o segundos.
+- `WOD` exige formato y score; `HYROX_SIM` exige tiempo.
+- El nombre del movimiento se denormaliza desde el catálogo (`exercise.name`) para que el historial no
+  dependa de joins.
+- Volumen: `Σ reps × weight_kg`; sin peso externo → 0.
+- PRs: solo `STRENGTH`/`SKILL`; comparan peso, luego reps, luego segundos. Los WOD no generan PRs.
+- `StatsService` trabaja sobre la ventana de semanas y devuelve buckets semanales desde el lunes.
+- `LeaderboardService` agrupa sesiones por atleta; no N+1 a la base.
 
-```java
-List<Task> findAll(TaskStatus status, int limit, int offset) {
-  var spec = restClient.get().uri(b -> {
-    b.path("/tasks").queryParam("select", "*")
-     .queryParam("order", "created_at.desc")
-     .queryParam("limit", limit).queryParam("offset", offset);
-    if (status != null) b.queryParam("status", "eq." + status.name());
-    return b.build();
-  });
-  var response = spec.header("Prefer", "count=exact").retrieve().toEntity(Task[].class);
-  // Content-Range: 0-19/42  → total = 42
-  return List.of(Objects.requireNonNull(response.getBody()));
-}
-```
+## Errores
 
-- Escapá valores de filtro (`URLEncoder`/builder) y validá enums antes de concatenar.
-- `POST`/`PATCH` con `Prefer: return=representation`; `DELETE` espera 204.
-- PostgREST devuelve **array** incluso para búsquedas por id: tomá el primero y lanzá `TaskNotFoundException`.
-- 404 de PostgREST no siempre significa "no existe": revisá el body (`code: PGRST116`).
-- Errores HTTP: capturá `RestClientResponseException`, parseá `{message, code, details, hint}` y
-  traducí a excepciones propias. Nunca propagues el body crudo al navegador.
-
-## Contrato y validación
-
-```java
-public record CreateTaskRequest(
-    @NotBlank @Size(max = 200) String title,
-    @Size(max = 2000) String description,
-    TaskStatus status,                 // null → TODO
-    TaskPriority priority,             // null → MEDIUM
-    @FutureOrPresent LocalDate dueDate) {}
-```
-
-- `@Valid` en el controller; errores de campo → 400 con detalle legible.
-- `PATCH`: todos los campos opcionales; si no viene ninguno → 400 (`IllegalArgumentException`).
-- No aceptes `id`, `createdAt`, `updatedAt` desde el cliente. El `id` va en la URL.
-- Fechas: `OffsetDateTime` para timestamps, `LocalDate` para fechas sin hora. Jackson con `JavaTimeModule`.
-
-## Manejo de errores
-
-`@RestControllerAdvice` con un único shape (`ApiError`) y `ProblemDetail`-style. Mapeo mínimo:
+`GlobalExceptionHandler` mapea a `{timestamp,status,error,message,path}`:
 
 | Excepción | HTTP |
 |---|---|
 | `MethodArgumentNotValidException` | 400 |
 | `IllegalArgumentException` | 400 |
-| `TaskNotFoundException` | 404 |
-| `PostgrestException` (4xx de negocio) | 409/422 |
-| `ResourceAccessException` / 5xx PostgREST | 502 |
+| `ResourceNotFoundException` | 404 |
+| `PostgrestException` 409 | 409 |
+| `PostgrestException` / red | 502 |
+| `Exception` | 500 (sin internals) |
 
-Logueá el detalle técnico con `log.warn` y devolvé un mensaje accionable sin internals.
+Nunca devuelvas el body crudo de PostgREST ni un stacktrace.
 
-## Tests (rápidos, sin DB)
+## Tests
 
-- **Controller**: `@WebMvcTest(TaskController.class)` + `@MockBean TaskService`; validá 201/400/404 y
-  el shape de error. No levantes el contexto completo para esto.
-- **Repositorio**: `MockRestServiceServer.bindTo(restClientBuilder)`; verificá path, query params,
-  header `Prefer` y parseo de `Content-Range`. Es la prueba que detecta el 90% de las roturas.
-- **Context**: un `@SpringBootTest` liviano con `app.postgrest.base-url=http://localhost:1` (no conecta
-  al arrancar).
-- Nombres: `shouldRejectBlankTitle`, `shouldMapContentRangeToTotal`. Un assert por comportamiento.
+- **Servicio**: Mockito puro. Cubrí defaults, validaciones condicionales, ownership, PRs y holds.
+- **Controller**: `@WebMvcTest` + `@MockBean SessionService`; 201+Location, 400, 404, 204.
+- **Repositorio**: `MockRestServiceServer.bindTo(RestClient.Builder)` con el mismo mapper snake_case;
+  verificá query params, `Prefer: count=exact`, RPC `$.payload`, orden de series y parseo de
+  `Content-Range`.
+- **Contexto**: `@SpringBootTest` con la configuración por defecto (no conecta a PostgREST al arrancar).
 
 ```bash
-./mvnw test                 # o mvn test
-./mvnw -q -DskipTests package
-./mvnw spring-boot:run      # :8080
+./mvnw test
+./mvnw -DskipTests package
+./mvnw spring-boot:run
 ```
 
 ## Pitfalls que ya nos costaron tiempo
 
-1. `RestClient` no lanza excepción en 4xx por defecto si usás `exchange`; preferí `retrieve()`.
-2. `PATCH` con `null` explícito borra la columna; construí el mapa solo con campos presentes
-   (`JsonInclude(NON_NULL)` no alcanza si el record trae null). Usá `Optional`/mapa explícito.
-3. `Content-Range` ausente cuando PostgREST no cuenta (`Prefer` mal escrito) → total = -1.
-4. `@FutureOrPresent` sobre `LocalDate` usa el reloj del servidor; testealo con fechas relativas.
-5. CORS: en dev el frontend usa el proxy de Vite; igual configurá `allowedOrigins` por propiedad.
-6. No agregues `spring-boot-starter-data-jpa`; el acceso a datos es HTTP.
+1. `SimpleClientHttpRequestFactory` no puede PATCH; usá `JdkClientHttpRequestFactory`.
+2. RPC sin `{"payload": ...}` → 404 “function does not exist”.
+3. Columna boolean `benchmark`, no `is_benchmark` (Jackson no la mapea).
+4. `BigDecimal` para pesos/RPE; nunca `double`.
+5. Ordenar series por `movement` y luego `setIndex` para agrupar en la UI.
+6. No hay auth: **no** aceptes `athleteId` desde el request; sale de `CurrentAthleteService`.
+7. `StatsService` recalcula en memoria; si crece el volumen, mover a vistas SQL y cachear.
 
 ## Definition of done
 
-- [ ] Endpoint documentado en README y tipado en `frontend/src/api/types.ts`.
-- [ ] Validación de entrada + error shape uniforme.
-- [ ] Tests de controller y repositorio cubriendo el caso feliz y el error principal.
-- [ ] `./mvnw test` verde; sin warnings nuevos de compilación.
+- [ ] Contrato actualizado en `frontend/src/api/types.ts`.
+- [ ] Validación + error shape.
+- [ ] Tests de servicio y controller (y repositorio si tocaste queries).
+- [ ] `./mvnw test` verde y `make smoke` si tocaste el flujo de sesiones.

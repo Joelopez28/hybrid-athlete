@@ -8,7 +8,7 @@ docker compose up -d --wait db postgrest
 cat <<'EOF'
 
 Infra lista:
-  PostgreSQL  localhost:5432  (taskflow / taskflow)
+  PostgreSQL  localhost:5432  (ruky / ruky)
   PostgREST   http://localhost:3000
 
 Ahora, en dos terminales:

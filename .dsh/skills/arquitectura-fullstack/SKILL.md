@@ -1,96 +1,95 @@
 ---
 name: arquitectura-fullstack
-description: Diseñar o extender un recurso end-to-end en este starter Spring Boot + React TS + PostgREST. Fija fronteras, contrato y orden de implementación.
-whenToUse: Cuando haya que agregar una entidad/recurso, cambiar el contrato /api, decidir si una consulta va por Spring o por PostgREST, o revisar coherencia entre capas.
+description: Diseñar y extender RUKY (entrenamiento CrossFit, powerlifting, calistenia y HYROX) sin romper la frontera React → Spring Boot → PostgREST → PostgreSQL.
+whenToUse: Al agregar una funcionalidad de producto, cambiar el contrato /api, modelar una disciplina o decidir dónde vive un cálculo.
 ---
 
-# Arquitectura full-stack (TaskFlow)
+# Arquitectura de RUKY
 
-Leé `AGENTS.md` antes de decidir. Esta skill evita el error clásico: escribir tres implementaciones
-incoherentes del mismo recurso.
+Leé `AGENTS.md` primero. Esta skill decide **dónde va cada cosa** antes de escribir código.
 
-## La frontera, en una frase
+## La frontera
 
-**React habla solo con Spring Boot; Spring Boot habla con PostgREST; PostgREST habla con PostgreSQL.**
-Si una propuesta rompe esa línea, necesita una decisión registrada en `docs/decisiones.md`.
+**React solo habla con Spring Boot; Spring Boot es el único cliente de PostgREST; PostgreSQL es la
+fuente de verdad.**
+
+```text
+Registrar sesión:
+React form → POST /api/sessions
+  → SessionController (@Valid)
+  → SessionService (normaliza, valida reglas)
+  → SessionRepository → POST /rest/rpc/create_session  (transacción: sesión + series)
+  → findById → GET /training_sessions?select=*,session_entries(*)
+  → 201 SessionResponse (camelCase, volumeKg calculado)
+```
 
 ## Qué va en cada capa
 
 | Necesidad | Capa | Motivo |
 |---|---|---|
-| Validar forma/tipos, mensajes de error estables | Spring | Contrato único para el frontend |
-| Reglas de negocio, transiciones de estado, permisos | Spring | Lógica imperativa y testeable |
-| Agregar datos de varias tablas para una pantalla | Spring | Evita N llamadas desde el navegador |
-| CRUD y filtros declarativos simples | PostgREST | Menos código, SQL directo |
-| Paginación, orden, búsqueda por columna | PostgREST | `limit/offset/order`, `Prefer: count=exact` |
-| Autorización por fila | Postgres (RLS) | No depende del cliente |
-| Estado de UI, caché de pantalla, formularios | React | Nada de esto pertenece al backend |
+| Validar campos, mensajes de error estables | Spring | Contrato único |
+| Calcular volumen, PRs, ranking, rachas | Spring | Lógica y tests |
+| Insertar sesión + N series sin estados a medias | PostgreSQL (RPC) | Atomicidad |
+| CRUD y lecturas con filtros/embedding | PostgREST | Menos código |
+| Autorización por fila (futuro) | PostgreSQL RLS | No depende del cliente |
+| Estado de pestañas, formularios, filtros de UI | React | No pertenece al backend |
 
-Regla práctica: si la operación se puede expresar como **una** consulta HTTP a PostgREST, no escribas
-un servicio Java que la reimplemente. Si necesita varias consultas, transacción o decisión, va en Spring.
+Regla: si es **una** consulta declarativa, no la reimplementes en Java. Si hay varias tablas,
+transacción, agregación o decisión de negocio, va en Spring o en una función SQL.
 
-## Flujo de una petición (alta de tarea)
+## Modelo mental del dominio
 
-```text
-POST /api/tasks
-  → TaskController  (@Valid CreateTaskRequest)
-  → TaskService     (normaliza, reglas: dueDate no pasada, status inicial)
-  → TaskRepository  (POST /tasks, Prefer: return=representation)
-  → PostgREST       (INSERT ... RETURNING *)
-  → 201 + Location: /api/tasks/{id}
-```
+- `athlete`: identidad, división (`OPEN`/`ELITE`), peso, disciplinas.
+- `exercise`: catálogo compartido; cada uno tiene disciplina, categoría y unidad.
+- `training_session`: fecha, disciplina, tipo, duración, RPE, resultado de WOD/HYROX.
+- `session_entry`: una serie o hold; `reps`, `weight_kg`, `seconds`.
+- **Volumen** = Σ reps × kg (solo peso externo). **PR** = mejor marca de sesiones `STRENGTH`/`SKILL`
+  por ejercicio; holds usan segundos.
 
-El frontend recibe `Task` (camelCase). PostgREST devuelve snake_case: el mapeo vive **solo** en
-`backend/.../postgrest/` (`@JsonProperty` o `PropertyNamingStrategies.SNAKE_CASE` por DTO).
+Las cuatro disciplinas comparten el mismo modelo; no crees una tabla por disciplina. Lo específico
+(WOD, HYROX, skills) se expresa con `session_type` + campos de resultado + entradas.
 
-## Checklist para agregar un recurso (en este orden)
+## Categorías (no confundir con el modelo de entrenamiento)
 
-1. **Contrato primero**: escribí el JSON de request/response y los códigos de error en el issue o en
-   `docs/`. Sin esto no hay nada que implementar.
-2. **Datos**: tabla en `db/init/00N_*.sql` (esquema `api`), constraints, índices para filtros reales,
-   grants a `web_anon` (dev). Probá con `curl` directo a PostgREST.
-3. **Backend**: DTOs (record), client PostgREST, service, controller, handler de errores, tests.
-4. **Tipos del frontend**: `frontend/src/api/types.ts` espeja el contrato antes de tocar componentes.
-5. **Cliente y hook**: `api/client.ts` + hook con estados `loading | error | data`; AbortController.
-6. **UI**: lista, formulario, estados vacío/error/carga, accesibilidad.
-7. **Verificación**: `make test` y `make smoke` (skill `verificacion-fullstack`).
-8. **Documentación**: endpoint nuevo en README y decisión en `docs/decisiones.md` si cambió una frontera.
+| Disciplina | Divisiones reales (referencia) |
+|---|---|
+| CrossFit | RX / Intermediate / Scaled; Masters; equipos; adaptado |
+| Powerlifting | sexo, peso corporal, Junior/Open/Master, Raw/Equipped |
+| HYROX | Open / Pro / Doubles / Relay; age groups |
+| Calistenia | streetlifting (peso), freestyle, endurance, skills |
 
-## Decisiones ya tomadas (no re-litigar sin motivo)
+Hoy `athletes.tier` solo distingue `OPEN`/`ELITE` para el leaderboard. Las categorías finas y las
+competencias son fase 2: no inventes una taxonomía universal de kilos.
 
-- **BFF, no BFF innecesario**: Spring no reimplementa cada filtro; expone lo que el cliente necesita.
-- **Sin ORM**: PostgREST + JDBC no aplican; el acceso pasa por HTTP. No agregues JPA/Hibernate.
-- **Sin auth en el starter**: hay un único rol anónimo de desarrollo. Producción exige JWT + RLS antes
-  de exponer datos reales; está en el roadmap.
-- **Sin GraphQL ni tRPC**: el contrato es REST/JSON.
-- **CSS plano**: la UI es deliberadamente simple y accesible; no introduzcas Tailwind/MUI sin ADR.
+## Checklist para agregar una funcionalidad
+
+1. **Producto**: escribí el caso de uso y el contrato JSON (request, response, errores).
+2. **Datos**: ¿alcanza el esquema? Si no, `db/init/006_*.sql` + grants; probá con `curl`.
+3. **Backend**: DTO + validación + repository/service + tests.
+4. **Tipos TS**: espejo exacto en `frontend/src/api/types.ts` antes de tocar componentes.
+5. **UI**: página/componente + estados carga/vacío/error + accesibilidad.
+6. **Verificación**: `make test`, `make smoke` y recorrido E2E.
+7. **Docs**: README/AGENTS si cambia contrato o regla.
+
+## Fronteras de la fase 2
+
+- **Competencias**: `competitions`, `competition_events`, `registrations`, `event_results`, scoring
+  por posición y desempates. No metas esa lógica en `LeaderboardService`.
+- **Ruky Elite**: criterios oficiales + postulación; no uses el ranking de volumen como clasificación.
+- **Auth/RLS**: cuando entre, `CurrentAthleteService` se reemplaza por el principal autenticado; el
+  resto del dominio no debería cambiar.
 
 ## Señales de diseño equivocado
 
-- El frontend arma URLs con `?select=` o conoce el nombre del esquema → fuga de la frontera.
-- El backend devuelve la fila cruda de PostgREST con `snake_case` → el contrato se filtró.
-- Varios endpoints que solo cambian un `WHERE` → un endpoint con filtros validados.
-- Lógica de permisos en React → se salta con DevTools.
-- Un `TaskService` con 40 métodos para operaciones que PostgREST ya resuelve → sobre-ingeniería.
+- El frontend arma `select=...` o conoce PostgREST → fuga de frontera.
+- Una tabla `wods`, otra `hyrox_sessions`, otra `lifts` → duplicación del mismo concepto.
+- El backend devuelve filas crudas en snake_case → contrato filtrado.
+- Calcular PRs o rankings en React → no se puede auditar ni comparar entre atletas.
+- Simular auth con un header “X-User” cuando no hay verificación real.
 
-## Cómo extender el starter a otro dominio
+## Definition of done
 
-Renombrá el dominio (`Task` → `Invoice`, etc.) manteniendo el patrón:
-
-```bash
-# 1) tabla + grants + seed   → db/init/004_invoices.sql
-# 2) espejo Java             → backend/src/main/java/com/example/taskflow/{domain,postgrest,service,web}
-# 3) tipos TS                → frontend/src/api/types.ts
-# 4) hook + componentes      → frontend/src/hooks, frontend/src/components
-```
-
-No copies y pegues el módulo `tasks` completo sin borrar lo que no aplique. El starter debe quedar
-ejecutable en todo momento (`make test`, `make smoke`).
-
-## Definition of done (arquitectura)
-
-- [ ] El navegador no conoce PostgREST ni sus parámetros.
-- [ ] El contrato está documentado y tipado en ambos lados.
-- [ ] Errores 400/404/409/502 tienen el mismo shape.
-- [ ] Migración de datos versionada y reversible en desarrollo (`make db-reset`).
-- [ ] `make test` + `make smoke` verdes, con evidencia pegada en el cierre.
+- [ ] Contrato documentado y tipado en ambos lados.
+- [ ] Cálculos (volumen/PR/ranking) viven en backend y tienen test.
+- [ ] Errores 400/404/409/502 con el mismo shape.
+- [ ] `make test` + `make smoke` verdes; UI probada en desktop y móvil.

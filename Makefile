@@ -6,7 +6,7 @@ NPM ?= npm
 .PHONY: help up down logs backend frontend install test backend-test frontend-test smoke db-reset full-up full-down clean
 
 help:
-	@echo "TaskFlow — comandos"
+	@echo "RUKY — comandos"
 	@echo ""
 	@echo "  make up            Postgres + PostgREST en Docker"
 	@echo "  make backend       Spring Boot en :8080 (usa ./mvnw)"

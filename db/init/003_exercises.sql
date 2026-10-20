@@ -1,0 +1,40 @@
+-- Exercise catalog shared by all four disciplines.
+insert into api.exercises (slug, name, discipline, category, unit) values
+    ('back-squat',        'Back Squat',        'POWERLIFTING', 'BARBELL',       'KG'),
+    ('front-squat',       'Front Squat',       'POWERLIFTING', 'BARBELL',       'KG'),
+    ('bench-press',       'Bench Press',       'POWERLIFTING', 'BARBELL',       'KG'),
+    ('deadlift',          'Deadlift',          'POWERLIFTING', 'BARBELL',       'KG'),
+    ('sumo-deadlift',     'Sumo Deadlift',     'POWERLIFTING', 'BARBELL',       'KG'),
+    ('overhead-press',    'Overhead Press',    'POWERLIFTING', 'BARBELL',       'KG'),
+    ('romanian-deadlift', 'Romanian Deadlift', 'POWERLIFTING', 'ACCESSORY',     'KG'),
+    ('barbell-row',       'Barbell Row',       'POWERLIFTING', 'ACCESSORY',     'KG'),
+
+    ('clean',             'Clean',             'CROSSFIT',     'BARBELL',       'KG'),
+    ('snatch',            'Snatch',            'CROSSFIT',     'BARBELL',       'KG'),
+    ('thruster',          'Thruster',          'CROSSFIT',     'BARBELL',       'KG'),
+    ('wall-ball',         'Wall Ball',         'CROSSFIT',     'METCON',        'KG'),
+    ('burpee',            'Burpee',            'CROSSFIT',     'METCON',        'BODYWEIGHT'),
+    ('pull-up',           'Pull-up',           'CROSSFIT',     'GYMNASTICS',    'BODYWEIGHT'),
+    ('toes-to-bar',       'Toes to Bar',       'CROSSFIT',     'GYMNASTICS',    'BODYWEIGHT'),
+    ('double-under',      'Double Under',      'CROSSFIT',     'METCON',        'REPS'),
+    ('box-jump',          'Box Jump',          'CROSSFIT',     'METCON',        'REPS'),
+    ('rowing',            'Row',               'CROSSFIT',     'CARDIO',        'METERS'),
+    ('assault-bike',      'Assault Bike',      'CROSSFIT',     'CARDIO',        'SECONDS'),
+
+    ('weighted-pull-up',  'Weighted Pull-up',  'CALISTHENICS', 'GYMNASTICS',    'KG'),
+    ('dip',               'Dip',               'CALISTHENICS', 'GYMNASTICS',    'KG'),
+    ('push-up',           'Push-up',           'CALISTHENICS', 'GYMNASTICS',    'BODYWEIGHT'),
+    ('muscle-up',         'Muscle-up',         'CALISTHENICS', 'GYMNASTICS',    'BODYWEIGHT'),
+    ('pistol-squat',      'Pistol Squat',      'CALISTHENICS', 'GYMNASTICS',    'BODYWEIGHT'),
+    ('handstand-hold',    'Handstand Hold',    'CALISTHENICS', 'GYMNASTICS',    'SECONDS'),
+    ('front-lever-hold',  'Front Lever Hold',  'CALISTHENICS', 'GYMNASTICS',    'SECONDS'),
+    ('planche-hold',      'Planche Hold',      'CALISTHENICS', 'GYMNASTICS',    'SECONDS'),
+
+    ('ski-erg',           'Ski Erg',           'HYROX',        'HYROX_STATION', 'METERS'),
+    ('sled-push',         'Sled Push',         'HYROX',        'HYROX_STATION', 'METERS'),
+    ('sled-pull',         'Sled Pull',         'HYROX',        'HYROX_STATION', 'METERS'),
+    ('burpee-broad-jump', 'Burpee Broad Jump', 'HYROX',        'HYROX_STATION', 'METERS'),
+    ('farmers-carry',     'Farmers Carry',     'HYROX',        'HYROX_STATION', 'METERS'),
+    ('sandbag-lunge',     'Sandbag Lunge',     'HYROX',        'HYROX_STATION', 'METERS'),
+    ('running',           'Running',           'HYROX',        'CARDIO',        'METERS')
+on conflict (slug) do nothing;

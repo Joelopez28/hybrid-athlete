@@ -1,132 +1,109 @@
 import { useEffect, useState } from "react";
-import type { CreateTaskInput } from "./api/types";
-import { Pagination } from "./components/Pagination";
-import { StatusFilter } from "./components/StatusFilter";
-import { TaskForm } from "./components/TaskForm";
-import { TaskList } from "./components/TaskList";
-import { useTasks, type TaskFilter } from "./hooks/useTasks";
+import { api } from "./api/client";
+import type { CreateSessionInput } from "./api/types";
+import { Header, type Tab } from "./components/Header";
+import { SessionForm } from "./components/SessionForm";
+import { useRukyData } from "./hooks/useRukyData";
+import { Community } from "./pages/Community";
+import { Dashboard } from "./pages/Dashboard";
+import { History } from "./pages/History";
+import { Progress } from "./pages/Progress";
 
 function App() {
-  const [filter, setFilter] = useState<TaskFilter>("ALL");
-  const [page, setPage] = useState(0);
-  const { data, loading, error, reload, create, update, remove } = useTasks(filter, page);
+  const { data, loading, error, reload } = useRukyData();
+  const [tab, setTab] = useState<Tab>("dashboard");
 
   useEffect(() => {
-    if (data && data.items.length === 0 && data.total > 0 && page > 0) {
-      setPage((current) => Math.max(0, current - 1));
-    }
-  }, [data, page]);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [tab]);
 
-  function handleFilter(next: TaskFilter) {
-    setFilter(next);
-    setPage(0);
+  async function handleCreate(input: CreateSessionInput) {
+    await api.createSession(input);
   }
 
-  async function handleCreate(input: CreateTaskInput) {
-    const task = await create(input);
-    setPage(0);
-    return task;
+  async function handleDelete(id: string) {
+    await api.deleteSession(id);
+    reload();
   }
 
-  const isEmpty = data !== null && data.items.length === 0;
-  const emptyMessage =
-    filter === "ALL"
-      ? "Todavía no hay tareas. Creá la primera con el formulario."
-      : "No hay tareas en este estado. Probá con otro filtro.";
+  if (loading && !data) {
+    return (
+      <div className="splash">
+        <span className="brand-mark" aria-hidden="true">
+          R
+        </span>
+        <p className="brand-name">RUKY</p>
+        <p className="muted">Cargando tu entrenamiento…</p>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="splash">
+        <span className="brand-mark" aria-hidden="true">
+          R
+        </span>
+        <p className="brand-name">RUKY</p>
+        <p className="splash-error">{error ?? "No se pudo cargar la app."}</p>
+        <button type="button" className="primary-button" onClick={reload}>
+          Reintentar
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="app">
-      <header className="app-header">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            TF
-          </span>
-          <div>
-            <p className="eyebrow">Starter full-stack</p>
-            <h1>TaskFlow</h1>
-          </div>
+      <Header tab={tab} athlete={data.me} onNavigate={setTab} />
+
+      {error && (
+        <div className="inline-alert global-alert" role="alert">
+          <p>No se pudieron refrescar los datos: {error}</p>
+          <button type="button" className="secondary-button" onClick={reload}>
+            Reintentar
+          </button>
         </div>
-        <p className="stack-pill">
-          <span className="dot" aria-hidden="true" />
-          Spring Boot · React · PostgREST
-        </p>
-      </header>
+      )}
 
-      <p className="intro">
-        Un tablero mínimo pero completo: validación y contrato en Spring Boot, datos en PostgreSQL
-        vía PostgREST y una UI tipada en React.
-      </p>
+      <main className="page">
+        {tab === "dashboard" && (
+          <Dashboard
+            athlete={data.me}
+            stats={data.stats}
+            sessions={data.sessions}
+            leaderboard={data.leaderboard}
+            onNavigate={setTab}
+          />
+        )}
 
-      <main className="layout">
-        <section className="composer panel" aria-labelledby="composer-title">
-          <div className="panel-heading">
-            <h2 id="composer-title">Nueva tarea</h2>
-            <p className="muted">Se guarda directo en PostgreSQL.</p>
+        {tab === "log" && (
+          <div className="log-page">
+            <header className="page-heading">
+              <div>
+                <p className="eyebrow">Carga</p>
+                <h1>Registrar</h1>
+                <p className="muted">
+                  Una sesión, una entrada. Después RUKY calcula volumen, PRs y ranking.
+                </p>
+              </div>
+            </header>
+            <SessionForm exercises={data.exercises} onCreate={handleCreate} onSaved={reload} />
           </div>
-          <TaskForm onCreate={handleCreate} />
-        </section>
+        )}
 
-        <section className="tasks-panel panel" aria-labelledby="tasks-title">
-          <div className="panel-heading tasks-heading">
-            <h2 id="tasks-title">
-              Tareas
-              {loading && data && <span className="updating">Actualizando…</span>}
-            </h2>
-            <StatusFilter
-              value={filter}
-              total={data ? data.total : null}
-              onChange={handleFilter}
-            />
-          </div>
+        {tab === "history" && (
+          <History sessions={data.sessions} onDelete={handleDelete} onNavigate={setTab} />
+        )}
 
-          {error && (
-            <div className="error-banner" role="alert">
-              <p>{error}</p>
-              <button type="button" className="secondary-button" onClick={reload}>
-                Reintentar
-              </button>
-            </div>
-          )}
+        {tab === "progress" && <Progress stats={data.stats} />}
 
-          {loading && !data && (
-            <div className="skeleton-list" role="status" aria-label="Cargando tareas">
-              <div className="skeleton-card" />
-              <div className="skeleton-card" />
-              <div className="skeleton-card" />
-            </div>
-          )}
-
-          {isEmpty && (
-            <div className="empty-state">
-              <span className="empty-mark" aria-hidden="true">
-                ✓
-              </span>
-              <h3>Sin resultados</h3>
-              <p>{emptyMessage}</p>
-            </div>
-          )}
-
-          {data && data.items.length > 0 && (
-            <TaskList
-              tasks={data.items}
-              onStatusChange={async (id, status) => {
-                await update(id, { status });
-              }}
-              onDelete={remove}
-            />
-          )}
-
-          {data && (
-            <Pagination page={data.page} totalPages={data.totalPages} onChange={setPage} />
-          )}
-        </section>
+        {tab === "community" && <Community athlete={data.me} />}
       </main>
 
-      <footer className="app-footer">
-        <p>
-            BFF en <code>/api</code> · PostgREST privado · PostgreSQL como fuente de verdad
-        </p>
-        <p className="muted">Starter generado para el equipo de agentes de TaskFlow.</p>
+      <footer className="site-footer">
+        <span>RUKY · training club</span>
+        <span>Demo local · sin auth todavía · datos en PostgreSQL</span>
       </footer>
     </div>
   );

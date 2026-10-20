@@ -1,84 +1,88 @@
 ---
 name: revision-codigo
-description: Revisar cambios de este stack con checklist priorizado (correctitud, contrato, seguridad, datos, tests, accesibilidad) y salida accionable.
-whenToUse: Antes de mergear o cerrar una tarea; al pedir una segunda opinión sobre un diff; al auditar seguridad o consistencia del contrato.
+description: Revisar cambios de RUKY con checklist priorizado (datos, contrato, seguridad, cálculos, UI y tests) y salida accionable.
+whenToUse: Antes de mergear o cerrar una tarea; al pedir una segunda opinión sobre un diff; al auditar privacidad o consistencia del ranking.
 ---
 
-# Revisión de código
+# Revisión de código (RUKY)
 
-Revisá el **diff completo** (incluidos tests y migraciones), no solo los archivos que te nombran.
-No reescribas el cambio: reportá. Si el autor te pide arreglar, primero entregá el informe.
+Revisá el diff completo, incluidos tests, SQL y seed. No reescribas: reportá. Si el autor pide
+arreglos, primero entregá el informe.
 
 ## Orden de lectura
 
-1. `git diff --stat` y `git diff` (o el rango de commits).
+1. `git diff --stat` / `git diff`.
 2. Contrato: `web/` DTOs ↔ `frontend/src/api/types.ts` ↔ README.
-3. Persistencia: `db/init/*.sql` ↔ `postgrest/` ↔ `service/`.
-4. Tests: ¿prueban comportamiento o implementación? ¿Falta el caso de error?
+3. Datos: `db/init/*.sql` ↔ repositorios ↔ cálculos.
+4. Tests: ¿fallan si se rompe el comportamiento?
 5. Seguridad y accesibilidad.
 
-## Checklist priorizado
+## P0 — bloqueante
 
-### P0 — bloqueante (no mergear)
+- [ ] Secreto/credencial en el diff (password real, JWT, URL privada).
+- [ ] `athleteId` aceptado desde el request: hoy **todo** debe salir de `CurrentAthleteService`.
+- [ ] Inyección en filtros/orden de PostgREST o SQL concatenado en la RPC.
+- [ ] PR/volumen calculado en React o distinto entre endpoints.
+- [ ] WOD tratado como PR (debe limitarse a `STRENGTH`/`SKILL`).
+- [ ] Migración destructiva sin plan (`drop`, `alter type`) o edición de un init ya aplicado.
+- [ ] Auth simulada (header “X-User”, token hardcodeado) presentada como real.
+- [ ] Datos de otro atleta visibles por un id adivinable.
+- [ ] Error 500 con stacktrace o body crudo de PostgREST.
 
-- [ ] Secreto/credencial en el diff (password, token, URL privada con auth).
-- [ ] Inyección: SQL concatenado, `select`/`order`/`limit` sin validar, URL de PostgREST con input crudo.
-- [ ] IDOR: un endpoint acepta `id` del cliente sin verificar pertenencia/permiso.
-- [ ] Validación ausente en escritura (título vacío, estado inválido, longitud).
-- [ ] `any`/`!` que oculta un error de tipos en el contrato.
-- [ ] Migración destructiva (`drop`, `alter type`) sin plan de rollback.
-- [ ] Error 500 con stacktrace o detalles internos expuestos.
-- [ ] El frontend llama a PostgREST o conoce el esquema.
+## P1 — corregir antes de cerrar
 
-### P1 — debería corregirse antes de cerrar
+- [ ] Contrato desincronizado entre Java y TS (campos nullable, enums, `bestSeconds`).
+- [ ] RPC sin `{"payload": ...}` o sin reload de schema.
+- [ ] Volumen = reps × kg mal aplicado (bodyweight, holds, series nulas).
+- [ ] `setIndex` o orden de series inconsistente en la respuesta.
+- [ ] Falta test de: creación con series, WOD inválido, ownership, PR por segundos, ranking Elite.
+- [ ] `StatsService`/`LeaderboardService` hacen N+1 o traen más filas de las necesarias.
+- [ ] Formulario sin validación de cliente o sin mostrar el error del servidor.
+- [ ] Mobile con overflow horizontal (tabla de series, nav, cards).
+- [ ] `any`, non-null assertions o casts que ocultan un error de tipos.
 
-- [ ] Contrato desincronizado (campo nuevo en Java, no en TS; o viceversa).
-- [ ] Error shape distinto entre endpoints.
-- [ ] Falta test del caso de error principal (400/404/409).
-- [ ] `PATCH` pisa columnas con `null` no intencionales.
-- [ ] Paginación sin `total` o `total` mal calculado (`Content-Range`).
-- [ ] Race condition en el hook (respuesta vieja pisa la nueva; falta AbortController).
-- [ ] Formulario sin label/`aria-invalid`; foco no visible.
-- [ ] N+1 de requests desde React (una llamada por fila).
-- [ ] Log de nivel `info` en cada request; ruido en producción.
+## P2 — mejora
 
-### P2 — mejora
-
-- [ ] Nombres vagos (`data`, `handleClick2`, `Manager`).
+- [ ] Nombres vagos (`data`, `handleClick`, `Manager`).
 - [ ] Código muerto, imports sin usar, comentarios que repiten el código.
-- [ ] CSS duplicado; valores mágicos fuera de tokens.
+- [ ] CSS duplicado o valores fuera de tokens.
 - [ ] Falta índice para el filtro nuevo.
 - [ ] README/ADR desactualizado.
+- [ ] Textos de UI en inglés o inconsistentes.
 
 ## Preguntas guía
 
-- ¿Qué pasa si PostgREST devuelve 500 o tarda 30s? ¿Hay timeout y mensaje?
-- ¿Qué pasa con dos usuarios simultáneos? ¿Se pierde una actualización?
-- ¿El test falla si rompo la query de PostgREST? Si no, no prueba nada.
+- ¿Qué pasa si PostgREST devuelve 500 o tarda 8s? ¿Timeout y mensaje?
+- ¿Dos sesiones simultáneas del mismo atleta corrompen algo? ¿La RPC es atómica?
+- ¿El test falla si cambio `weight_kg` por `reps` en el volumen?
 - ¿La UI funciona sin mouse y sin color?
+- ¿El ranking sigue siendo comparable si alguien registra 10 sesiones de 5 minutos?
 - ¿El cambio se puede revertir sin tocar datos?
 
 ## Formato de salida
 
 ```markdown
 ## Resumen
-<2–3 líneas: qué hace el cambio y veredicto>
+<2–3 líneas + veredicto>
 
 ## Bloqueantes
-1. `archivo:línea` — problema concreto → fix sugerido.
+1. `archivo:línea` — impacto → fix sugerido.
 
-## No bloqueantes
+## Importantes
+- ...
+
+## Menores
 - ...
 
 ## Verificación
-- Comandos que corriste y resultado; qué faltó probar.
+- Comandos y resultado; qué no se probó.
 
 ## Veredicto
 APROBADO / APROBADO CON CAMBIOS / RECHAZADO
 ```
 
 Reglas:
-- Citá `archivo:línea` y explicá el **impacto**, no solo el estilo.
+- Citá `archivo:línea` y explicá el impacto, no solo el estilo.
 - Un hallazgo por ítem; sin duplicados.
-- Si no hay bloqueantes, decilo explícitamente y no inventes problemas.
-- No propongas refactors grandes dentro de un fix pequeño; anotalos como seguimiento.
+- Si no hay bloqueantes, decilo y no inventes problemas.
+- No propongas refactors grandes dentro de un fix chico; anotalos como seguimiento.
