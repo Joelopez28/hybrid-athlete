@@ -7,6 +7,7 @@ import { useRukyData } from "./hooks/useRukyData";
 import { Auth } from "./pages/Auth";
 import { Community } from "./pages/Community";
 import { Compete } from "./pages/Compete";
+import { Elite } from "./pages/Elite";
 import { Dashboard } from "./pages/Dashboard";
 import { History } from "./pages/History";
 import { Progress } from "./pages/Progress";
@@ -116,6 +117,8 @@ function App() {
 
         {tab === "progress" && <Progress stats={data.stats} />}
 
+        {tab === "elite" && <Elite athlete={data.me} />}
+
         {tab === "compete" && <Compete athlete={data.me} />}
 
         {tab === "community" && <Community athlete={data.me} />}
@@ -123,7 +126,7 @@ function App() {
 
       <footer className="site-footer">
         <span>RUKY · training club</span>
-        <span>Demo local · sin auth todavía · datos en PostgreSQL</span>
+        <span>Demo · JWT + RLS · datos en PostgreSQL</span>
       </footer>
     </div>
   );

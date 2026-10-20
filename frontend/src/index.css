@@ -2246,6 +2246,176 @@ textarea:focus-visible {
   margin: 0;
 }
 
+/* Ruky Elite */
+
+.elite-page {
+  display: grid;
+  gap: 16px;
+}
+
+.elite-page .page-heading {
+  margin-bottom: 0;
+}
+
+.elite-tier-pill {
+  padding: 5px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.elite-tier-pill.is-elite {
+  border-color: rgb(216 255 62 / 45%);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.elite-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(180px, 0.7fr) auto;
+  align-items: center;
+  gap: 20px;
+  background:
+    radial-gradient(420px 220px at 100% 0%, rgb(216 255 62 / 9%), transparent 70%),
+    var(--surface);
+}
+
+.elite-summary.is-qualified {
+  border-color: rgb(216 255 62 / 32%);
+}
+
+.elite-summary h2 {
+  margin: 4px 0 5px;
+  font-size: 25px;
+  letter-spacing: -0.03em;
+}
+
+.elite-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.elite-progress {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.elite-progress-track {
+  width: 100%;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.elite-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent), #eaff86);
+  transition: width 220ms ease;
+}
+
+.elite-note {
+  max-width: 180px;
+  color: var(--accent) !important;
+  font-size: 11px !important;
+  text-align: right;
+}
+
+.standards-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.standard-card {
+  padding: 17px 18px;
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+}
+
+.standard-card.is-met {
+  border-top-color: var(--accent);
+  background:
+    linear-gradient(160deg, rgb(216 255 62 / 6%), transparent 55%),
+    var(--surface);
+}
+
+.standard-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 9px;
+}
+
+.standard-state {
+  color: var(--faint);
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.standard-card.is-met .standard-state {
+  color: var(--accent);
+}
+
+.standard-card h3 {
+  margin-bottom: 5px;
+  font-size: 17px;
+}
+
+.standard-detail {
+  margin-bottom: 12px;
+  color: var(--muted);
+  font-size: 11.5px;
+}
+
+.standard-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  overflow: hidden;
+}
+
+.standard-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.standard-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 7px;
+  color: var(--faint);
+  font-size: 9.5px;
+}
+
+.elite-rules p {
+  max-width: 760px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.elite-rules code {
+  margin: 0 4px;
+}
+
 /* Footer */
 
 .site-footer {
@@ -2313,11 +2483,13 @@ textarea:focus-visible {
   .progress-grid,
   .community-grid,
   .competition-hero,
-  .competition-layout {
+  .competition-layout,
+  .elite-summary {
     grid-template-columns: 1fr;
   }
 
-  .events-grid {
+  .events-grid,
+  .standards-grid {
     grid-template-columns: 1fr;
   }
 
@@ -2508,6 +2680,11 @@ textarea:focus-visible {
 
   .event-form .secondary-button {
     align-self: flex-start;
+  }
+
+  .elite-note {
+    max-width: none;
+    text-align: left;
   }
 
   .table-hint {

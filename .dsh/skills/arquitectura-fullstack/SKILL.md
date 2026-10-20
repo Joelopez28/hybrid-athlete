@@ -80,10 +80,16 @@ competencias son fase 2: no inventes una taxonomía universal de kilos.
 - Inscripción y resultado usan upsert (`on_conflict` + `resolution=merge-duplicates`).
 - Una competencia debe estar `LIVE` para inscribirse/cargar resultados; Ruky Elite exige tier ELITE.
 
+## Ruky Elite (implementado)
+
+- `elite_standards`: 4 criterios configurables (Total SBD, Fran, HYROX, dominada lastrada).
+- `EliteService` calcula sobre 52 semanas; 3 de 4 habilita `POST /api/elite/apply`.
+- El pase usa `app_service` para actualizar `athletes.tier`; el usuario no puede editar su tier.
+
 ## Siguiente fase
 
 - **Admin de competencias**: validar resultados, cerrar eventos y publicar ranking final.
-- **Ruky Elite**: criterios oficiales + postulación; no uses el ranking de volumen como clasificación.
+- **Ruky Elite** (implementado): `elite_standards` + `EliteService`; 3 de 4 criterios y pase a ELITE.
 - **Auth/RLS** (implementado): JWT HS256 emitido por Spring, validado por PostgREST; `app_user` con
   RLS; `CurrentAthleteService` sale de `AuthContext`. El leaderboard usa una vista agregada.
 

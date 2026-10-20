@@ -16,6 +16,7 @@ No tocás `frontend/`, `db/` ni compose salvo pedido explícito.
 - Repositorios PostgREST en `postgrest/`; URLs/headers solo ahí.
 - RPC `create_session` con wrapper `{"payload": ...}` y lectura posterior.
 - Reglas en `service/`: sesión válida, volumen, PRs, ranking, ownership del atleta JWT.
+- Elite: `EliteService` (4 estándares, 3 requeridos, pase con `app_service`).
 - Competencias: `CompetitionService` + `CompetitionScoring` (puntaje por posición, empates,
   inscripción/resultado con upsert, validación LIVE y tier Elite).
 - Errores uniformes (`ApiError`) y mapeo de excepciones.
@@ -51,7 +52,7 @@ Si no podés correr Maven, decilo. No inventes resultados.
 - backend/src/...
 
 ## Verificación
-- `./mvnw test` → 47 tests, 0 failures
+- `./mvnw test` → 50 tests, 0 failures
 - ...
 
 ## Contrato

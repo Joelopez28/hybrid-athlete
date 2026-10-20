@@ -2,6 +2,7 @@ import type {
   Athlete,
   AthleteTier,
   AuthResponse,
+  EliteStatus,
   LoginInput,
   RegisterAthleteInput,
   CompetitionDetail,
@@ -189,6 +190,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     });
+  },
+
+  eliteStatus(signal?: AbortSignal): Promise<EliteStatus> {
+    return request<EliteStatus>("/elite/status", { signal });
+  },
+
+  applyElite(): Promise<EliteStatus> {
+    return request<EliteStatus>("/elite/apply", { method: "POST" });
   },
 
   exercisesByDiscipline(discipline: Discipline, signal?: AbortSignal): Promise<Exercise[]> {

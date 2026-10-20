@@ -39,6 +39,7 @@ arreglos, primero entregá el informe.
 - [ ] `StatsService`/`LeaderboardService`/`CompetitionScoring` hacen N+1 o traen filas de más.
 - [ ] Puntaje de competencia mal calculado (empates, ausencias, puntos por puesto) o en React.
 - [ ] Inscripción/resultado con insert ciego en vez de upsert; falta validar `LIVE` o tier Elite.
+- [ ] Clasificación Elite mal calculada (ratio SBD, tiempos, 3 de 4) o `tier` editable desde el perfil.
 - [ ] Formulario sin validación de cliente o sin mostrar el error del servidor.
 - [ ] Mobile con overflow horizontal (tabla de series, nav, cards).
 - [ ] `any`, non-null assertions o casts que ocultan un error de tipos.

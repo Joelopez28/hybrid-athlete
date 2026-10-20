@@ -62,6 +62,9 @@ export function Dashboard({ athlete, stats, sessions, leaderboard, onNavigate }:
               {athlete.country ?? "—"} · {athlete.bodyweightKg ?? "—"} kg
             </span>
           </div>
+          <button type="button" className="secondary-button" onClick={() => onNavigate("elite")}>
+            Ver mi clasificación
+          </button>
         </aside>
       </section>
 

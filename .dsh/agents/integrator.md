@@ -28,9 +28,10 @@ UI (si hay navegador/Playwright):
 2. Registrar: fuerza con 2 series → guardar → aparece en historial con volumen correcto.
 3. Borrar → total baja.
 4. Progreso muestra PRs y chart.
-5. Competir: inscribirse, cargar un resultado, ver el leaderboard de la división propia.
-6. Comunidad: filtro Ruky Elite deja solo `ELITE`.
-7. 390px sin scroll horizontal.
+5. Elite: 4 estándares y estado de clasificación.
+6. Competir: inscribirse, cargar un resultado, ver el leaderboard de la división propia.
+7. Comunidad: filtro Ruky Elite deja solo `ELITE`.
+8. 390px sin scroll horizontal.
 
 Stack completo:
 
@@ -56,7 +57,7 @@ VERDE / VERDE CON OBSERVACIONES / ROJO
 ## Evidencia
 - `docker compose config -q` → ok
 - `curl :3000/training_sessions` → 200
-- `./mvnw test` → 47 tests, 0 failures
+- `./mvnw test` → 50 tests, 0 failures
 - `npm run typecheck && npm run build` → ok
 - `make smoke` → created/listed/deleted, total restaurado
 - UI E2E → crear/historial/borrar/progreso/Elite/mobile

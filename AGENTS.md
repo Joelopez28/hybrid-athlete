@@ -38,7 +38,7 @@ make up            # Postgres + PostgREST
 make install       # deps frontend (una vez)
 make backend       # Spring Boot en :8080
 make frontend      # Vite en :5173
-make test          # 47 tests backend + typecheck/build frontend
+make test          # 50 tests backend + typecheck/build frontend
 make smoke         # crea sesión, verifica volumen, lista y borra
 make full-up       # stack completo en Docker (:8081)
 make db-reset      # borra el volumen y re-siembra (destructivo)
@@ -60,8 +60,9 @@ Detalle y troubleshooting en `README.md`.
 - **Comunidad**: ranking por volumen, sesiones o minutos; filtro por período y división (`OPEN` / `ELITE`).
 - **Competencias Strong Fit**: competencia en vivo, inscripción por división, 4 pruebas, carga de
   resultados y leaderboard con puntaje por posición (10 puntos por puesto).
-- **Ruky Elite**: división de élite del atleta (`athletes.tier`). Los estándares que muestra la UI son
-  **referencia**, no un sistema de clasificación implementado.
+- **Ruky Elite**: estándares configurables en `elite_standards` (PL total, Fran, HYROX y dominada
+  lastrada). La clasificación se calcula sobre 52 semanas: 3 de 4 estándares y el atleta puede
+  solicitar el pase a `ELITE`. La división por invitación se mantiene.
 
 ## Contrato de la API
 
@@ -82,6 +83,8 @@ Detalle y troubleshooting en `README.md`.
 | `POST` | `/api/competitions/{slug}/register` | Inscribirse / cambiar de división |
 | `DELETE` | `/api/competitions/{slug}/register` | Baja |
 | `POST` | `/api/competitions/{slug}/events/{id}/result` | Cargar/actualizar resultado |
+| `GET` | `/api/elite/status` | Estándares y clasificación del atleta |
+| `POST` | `/api/elite/apply` | Solicitar pase a Ruky Elite si califica |
 | `GET` | `/api/leaderboard?weeks=4&metric=VOLUME&tier=ELITE` | Ranking |
 
 - JSON camelCase; fechas ISO-8601; errores `{ timestamp, status, error, message, path }`.
@@ -102,12 +105,15 @@ Detalle y troubleshooting en `README.md`.
   ausente = 0; desempate por cantidad de primeros puestos.
 - Inscripción y resultados se hacen con **upsert** de PostgREST (`on_conflict` + `resolution=merge-duplicates`).
   `Ruky Elite` exige `athletes.tier = ELITE`; la competencia debe estar `LIVE`.
+- **Ruky Elite**: `elite_standards` define métrica/objetivo; `EliteService` calcula 4 criterios
+  (total SBD/peso, Fran, HYROX, dominada lastrada/peso) y exige 3. `POST /apply` usa el cliente de
+  servicio para actualizar `tier`; no se puede editar el tier desde el perfil.
 - **Auth/RLS**: `athlete_credentials` (email + BCrypt hash) solo la lee `app_service`; nunca se
   expone por PostgREST. `authenticator` puede `SET ROLE` a `app_user` o `app_service`.
   `app_user` tiene RLS por `api.current_athlete_id()`; `app_service` tiene `BYPASSRLS`.
 - La RPC `api.create_session` inserta sesión + series en una transacción. Si cambiás su firma,
   actualizá `SessionWrite`, `SessionRepository` y `005_functions.sql`.
-- Cambios de esquema: archivo nuevo numerado (`009_*.sql`); no edites uno ya aplicado en producción.
+- Cambios de esquema: archivo nuevo numerado (`010_*.sql`); no edites uno ya aplicado en producción.
 - `PGRST_JWT_SECRET` debe ser el mismo en backend, PostgREST y compose. En producción usá un secreto
   real de ≥32 caracteres y HTTPS.
 
@@ -150,7 +156,8 @@ Detalle y troubleshooting en `README.md`.
 
 - **Cierre de competencias**: hoy no hay admin que valide resultados ni cierre un evento; el
   atleta puede editar su marca mientras la competencia esté `LIVE`.
-- **Criterios Ruky Elite**: benchmarks oficiales y flujo de postulación/clasificación.
+- **Ruky Elite**: validar con el equipo si los 4 estándares/3 requeridos son los definitivos y si
+  la invitación manual sigue existiendo.
 - **Sesiones de larga duración**: el JWT dura 12 h y no hay refresh/revocación; evaluar refresh tokens.
 - Migraciones Flyway/Liquibase; hoy init scripts de Docker.
 - E2E Playwright versionado en el repo y CI.

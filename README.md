@@ -5,7 +5,7 @@ mirá tu progreso, competí por ranking y entrá a la división **Ruky Elite**.
 
 ![Dashboard de RUKY](docs/captura-desktop.png)
 
-<sub>Vista móvil: [captura responsive](docs/captura-mobile.png) · Competencias: [captura Strong Fit](docs/captura-compete.png) · Acceso: [captura login](docs/captura-auth.png).</sub>
+<sub>Vista móvil: [captura responsive](docs/captura-mobile.png) · Competencias: [captura Strong Fit](docs/captura-compete.png) · Ruky Elite: [captura clasificación](docs/captura-elite.png) · Acceso: [captura login](docs/captura-auth.png).</sub>
 
 ## Qué está implementado
 
@@ -21,8 +21,10 @@ mirá tu progreso, competí por ranking y entrá a la división **Ruky Elite**.
   El ranking comunitario usa una vista agregada, sin exponer sesiones ajenas.
 - **Competencias Strong Fit**: competencia en vivo con 4 pruebas, inscripción por división (Ruky
   Elite / RX), carga y edición de resultados, puntaje por posición y leaderboard por división.
+- **Ruky Elite**: clasificación automática sobre 4 estándares (Total SBD, Fran, HYROX y dominada
+  lastrada). Con 3 de 4 podés solicitar el pase a la división Elite.
 - **Backend Spring Boot 3.3 / Java 17**: contrato `/api`, validación, errores uniformes, cálculos de
-  volumen/PR/ranking/puntaje, 47 tests.
+  volumen/PR/ranking/puntaje, 50 tests.
 - **PostgREST + PostgreSQL 16**: 10 tablas, roles `app_user`/`app_service`, RLS, catálogo de 34
   ejercicios, RPC atómica para sesiones + series y datos demo de 4 atletas.
 - **Docker Compose**: desarrollo y stack completo con Nginx (`:8081`).
@@ -32,8 +34,6 @@ mirá tu progreso, competí por ranking y entrá a la división **Ruky Elite**.
 
 - **Cierre de competencias**: no hay admin que valide resultados ni cierre una competencia; el
   atleta puede editar su marca mientras esté `LIVE`.
-- **Criterios Ruky Elite**: la división existe (`athletes.tier`); los estándares son de referencia,
-  no un sistema de clasificación.
 - **Sesiones JWT**: 12 h de vigencia, sin refresh ni revocación.
 - Migraciones formales (hoy scripts de init), CI y E2E versionado.
 
@@ -88,7 +88,7 @@ dependencias.
 Verificación:
 
 ```bash
-make test     # 47 tests backend + typecheck/build frontend
+make test     # 50 tests backend + typecheck/build frontend
 make smoke    # crea una sesión de 500 kg, la lista y la borra
 ```
 
@@ -113,7 +113,8 @@ Nginx sirve la SPA y hace proxy de `/api`; Postgres y PostgREST no se publican.
 4. **Progreso**: PRs, volumen semanal y distribución de la carga.
 5. **Competir**: inscribite en la división Ruky Elite o RX, cargá tus marcas en cada prueba y seguí
    el leaderboard. El puntaje es por posición y se recalcula en vivo.
-6. **Comunidad**: cambiá métrica, período y división. **Ruky Elite** filtra solo atletas `ELITE`.
+6. **Elite**: mirá tus 4 estándares, el progreso y solicitá el pase a Ruky Elite si cumplís 3.
+7. **Comunidad**: cambiá métrica, período y división. **Ruky Elite** filtra solo atletas `ELITE`.
 
 ### Datos demo
 
@@ -148,6 +149,8 @@ Base: `http://localhost:8080/api`. Todos los endpoints salvo `/api/auth/**` requ
 | `DELETE` | `/api/competitions/{slug}/register` | Darse de baja |
 | `POST` | `/api/competitions/{slug}/events/{id}/result` | Cargar/actualizar resultado |
 | `GET` | `/api/leaderboard?weeks=4&metric=VOLUME&tier=ELITE` | Ranking |
+| `GET` | `/api/elite/status` | Estándares y clasificación propia |
+| `POST` | `/api/elite/apply` | Solicitar pase a Ruky Elite |
 
 ```bash
 # Login y token
@@ -210,6 +213,9 @@ Errores uniformes:
 - **Ranking** por volumen/sesiones/minutos, agregado en backend sobre las sesiones del período.
 - **Competencias**: puntos por prueba = `(participantes - puesto + 1) × 10`; resultado ausente = 0.
   Desempate por cantidad de primeros puestos. Se calcula en backend, no se persiste.
+- **Ruky Elite**: `elite_standards` (4 filas) define métrica y objetivo. `EliteService` calcula los
+  valores de las últimas 52 semanas y exige 3 de 4. El pase actualiza `athletes.tier` con el cliente
+  de servicio.
 - Roles: `authenticator` (login), `app_user` (JWT, RLS), `app_service` (solo backend, BYPASSRLS).
   `web_anon` no tiene acceso a tablas.
 - **RLS**: sesiones y series solo del atleta autenticado; perfiles y resultados de competencia
@@ -271,7 +277,8 @@ Flujo recomendado: `arquitectura-fullstack` → `data-dev` → `backend-dev` →
 │   ├── 005_functions.sql
 │   ├── 006_competitions.sql
 │   ├── 007_competition_demo.sql
-│   └── 008_auth.sql
+│   ├── 008_auth.sql
+│   └── 009_elite.sql
 ├── backend/
 │   ├── mvnw
 │   └── src/main/java/com/ruky/training/
@@ -279,14 +286,14 @@ Flujo recomendado: `arquitectura-fullstack` → `data-dev` → `backend-dev` →
 │       ├── domain/      Atletas, sesiones, competencias
 │       ├── postgrest/   Repositorios, RPC y upserts
 │       ├── security/    JwtService, filtro y contexto
-│       ├── service/     Auth, sesiones, stats, leaderboard, scoring
+│       ├── service/     Auth, sesiones, stats, leaderboard, scoring, elite
 │       ├── web/         Controllers y DTOs
 │       └── error/       ApiError + handler
 ├── frontend/
 │   ├── src/api/         Tipos y cliente
 │   ├── src/hooks/       useRukyData, useLeaderboard, useCompetition
 │   ├── src/components/  Header, SessionForm, SessionCard, chart
-│   └── src/pages/       Dashboard, History, Progress, Compete, Community
+│   └── src/pages/       Auth, Dashboard, History, Progress, Elite, Compete, Community
 ├── scripts/             smoke.sh, dev.sh
 ├── docs/                Capturas y ADR
 └── .dsh/                Skills y briefs
@@ -308,8 +315,7 @@ Antes de producción:
 
 1. **Cierre y validación de competencias**: admin que confirme resultados, cierre eventos y
    publique el ranking final.
-2. **Ruky Elite**: benchmarks oficiales y flujo de clasificación.
-3. **Progreso avanzado**: 1RM estimado, mejores tiempos, comparación por disciplina.
+2. **Progreso avanzado**: 1RM estimado, mejores tiempos, comparación por disciplina.
 4. Migraciones Flyway, CI y E2E Playwright versionado.
 
 ## Troubleshooting

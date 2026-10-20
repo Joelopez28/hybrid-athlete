@@ -319,3 +319,25 @@ export interface RegisterAthleteInput {
   country?: string | null;
   disciplines?: Discipline[];
 }
+
+export interface EliteCriterion {
+  code: string;
+  discipline: Discipline;
+  name: string;
+  target: number;
+  actual: number;
+  unit: string;
+  met: boolean;
+  progress: number;
+  detail: string;
+}
+
+export interface EliteStatus {
+  athlete: Athlete;
+  tier: AthleteTier;
+  qualified: boolean;
+  metCount: number;
+  requiredCount: number;
+  standards: EliteCriterion[];
+  message: string;
+}

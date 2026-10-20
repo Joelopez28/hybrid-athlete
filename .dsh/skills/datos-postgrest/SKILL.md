@@ -17,6 +17,7 @@ athletes ──< training_sessions ──< session_entries >── exercises
 - `training_sessions`: atleta, fecha, disciplina, tipo, duración, RPE, resultado WOD/HYROX.
 - `session_entries`: sesión, ejercicio opcional, `movement` denormalizado, `set_index`, `reps`,
   `weight_kg`, `seconds`, `rpe`.
+- `elite_standards`: criterios públicos (métrica, objetivo, unidad) para la clasificación Elite.
 - Competencias: `competitions` → `competition_divisions` / `competition_events`;
   `competition_registrations` (única por competencia/atleta) y `competition_results`
   (única por evento/atleta). Las FK compuestas garantizan que división/evento pertenezcan a la
@@ -64,6 +65,7 @@ Prefer: resolution=merge-duplicates,return=representation
 
 - El puntaje no se guarda: se calcula en `CompetitionScoring`.
 - El seed (`007_competition_demo.sql`) crea 1 competencia LIVE, 2 divisiones, 4 pruebas y 16 resultados.
+- `009_elite.sql` crea los 4 estándares; `EliteRepository.promote` usa `app_service` para cambiar tier.
 - Para cerrar una competencia, actualizá `status` a `FINISHED` (admin es fase 2).
 
 ## Consultas que usa el BFF

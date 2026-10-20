@@ -71,6 +71,13 @@ puntaje en `CompetitionScoring`:
 Tests: `CompetitionScoringTest` (puro), `CompetitionServiceTest` (reglas), `CompetitionRepositoryTest`
 (upsert/embed), `CompetitionControllerTest`.
 
+## Ruky Elite
+
+- `EliteRepository`: estándares con el cliente de usuario; `promote` con el cliente de servicio.
+- `EliteService`: calcula total SBD/peso, Fran, HYROX y dominada lastrada/peso sobre 52 semanas.
+- 3 de 4 criterios → `qualified`; `POST /api/elite/apply` promueve a `ELITE` solo si califica.
+- Parseo de tiempos `mm:ss` / `h:mm:ss`; no interpretes AMRAP (`8+12`) como tiempo.
+
 ## Errores
 
 `GlobalExceptionHandler` mapea a `{timestamp,status,error,message,path}`:

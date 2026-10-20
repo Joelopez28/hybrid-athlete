@@ -19,7 +19,7 @@ docker compose ps                      # db healthy, postgrest up
 curl -sS -i 'http://localhost:3000/training_sessions?limit=1'
 
 # 1) Backend
-cd backend && ./mvnw test              # 47 tests
+cd backend && ./mvnw test              # 50 tests
 curl -sS http://localhost:8080/actuator/health
 
 # 2) Contrato real (crea, verifica volumen, lista, borra)
@@ -63,9 +63,10 @@ Si falla:
 5. Progreso: PRs (kg/reps/segundos), chart y mezcla.
 6. Competir: inscribirse/cambiar división, cargar un resultado, ver la marca formateada y el
    leaderboard de la división propia; la tabla scrollea y el Total queda fijo.
-7. Comunidad: cambiar métrica/período/división; Ruky Elite filtra solo `ELITE`.
-8. Logout y re-login; la sesión persiste. Registro nuevo crea atleta OPEN.
-9. Mobile 390px: navegación envuelta, sin scroll horizontal, tablas con scroll interno.
+7. Elite: 4 estándares, progreso y (si aplica) postulación.
+8. Comunidad: cambiar métrica/período/división; Ruky Elite filtra solo `ELITE`.
+9. Logout y re-login; la sesión persiste. Registro nuevo crea atleta OPEN.
+10. Mobile 390px: navegación envuelta, sin scroll horizontal, tablas con scroll interno.
 
 ## Diagnóstico por capa
 
@@ -86,7 +87,7 @@ Si falla:
 ```text
 ✅ docker compose config -q
 ✅ curl :3000/training_sessions → 200
-✅ ./mvnw test → 47 tests, 0 failures
+✅ ./mvnw test → 50 tests, 0 failures
 ✅ Auth E2E → login, registro, RLS, logout, re-login
 ✅ npm run typecheck && npm run build → ok
 ✅ make smoke → created/listed/deleted, total restaurado

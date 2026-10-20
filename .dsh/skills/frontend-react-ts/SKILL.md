@@ -17,7 +17,7 @@ src/components/Header.tsx  navegación y atleta
 src/components/SessionForm.tsx  formulario dinámico por tipo
 src/components/SessionCard.tsx  tarjeta + series desplegables
 src/components/WeeklyVolumeChart.tsx
-src/pages/              Auth, Dashboard, History, Progress, Compete, Community
+src/pages/              Auth, Dashboard, History, Progress, Elite, Compete, Community
 src/App.tsx             tabs y composición
 src/index.css           tokens, layout, dark UI
 ```
@@ -31,6 +31,7 @@ Si la app crece, el orden es: router → TanStack Query → librería de UI, cad
 - `useRukyData` carga todo en paralelo y expone `reload()`. Las mutaciones hacen `await` y `reload()`.
 - `useLeaderboard` es independiente porque la comunidad cambia métrica/período/división.
 - `useCompetition` carga la lista y el detalle de la primera competencia; las mutaciones hacen reload.
+- `useElite` carga `/api/elite/status`; la página muestra 4 estándares y el botón de postulación.
 - `Auth` bloquea la app sin token; `api/client.ts` guarda el JWT en `localStorage` y lo adjunta.
   Un 401 limpia el token y dispara `ruky:unauthorized`; `App` vuelve al login.
 - No dupliques datos: `stats` viene del backend; no recalcules volumen ni PRs en React.

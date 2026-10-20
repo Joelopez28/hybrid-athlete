@@ -74,8 +74,8 @@ consecuencias. Si cambiás una, agregá un ADR nuevo que la reemplace.
 - **Contexto**: el usuario quiere una “categoría Ruky Elite” dentro de la comunidad.
 - **Decisión**: `athletes.tier ∈ {OPEN, ELITE}` y el leaderboard filtra por división. Los estándares
   mostrados son de referencia; el acceso es por invitación en esta fase.
-- **Consecuencias**: no hay cobro ni gating de contenido. La clasificación automática por benchmarks
-  es una fase posterior y requiere definir reglas oficiales.
+- **Consecuencias**: no hay cobro ni gating de contenido. La clasificación automática se agregó en
+  ADR-010; la invitación manual sigue existiendo.
 
 ## ADR-007 — Competencias Strong Fit con puntaje por posición
 
@@ -102,3 +102,13 @@ consecuencias. Si cambiás una, agregá un ADR nuevo que la reemplace.
   `Prefer: resolution=merge-duplicates,return=representation`.
 - **Consecuencias**: las operaciones son idempotentes y no requieren PATCH separados. Los campos
   omitidos no se borran (merge), así que limpiar `notes` requiere enviar `""` o modelar un PATCH.
+
+## ADR-010 — Clasificación Ruky Elite por estándares
+
+- **Fecha**: 2026-10-20
+- **Contexto**: la división existía solo por invitación y la UI mostraba estándares de referencia.
+- **Decisión**: `elite_standards` guarda 4 criterios configurables (Total SBD, Fran, HYROX y dominada
+  lastrada). `EliteService` los evalúa sobre las últimas 52 semanas; cumplir 3 habilita
+  `POST /api/elite/apply`, que usa `app_service` para actualizar `athletes.tier`.
+- **Consecuencias**: las reglas son auditables y editables sin deploy. Los valores son una primera
+  propuesta y deben validarse con el equipo; el atleta no puede editar su propio tier.
